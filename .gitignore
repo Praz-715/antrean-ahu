@@ -1,0 +1,31 @@
+# Nuxt / Nitro
+.nuxt
+.output
+.nitro
+.cache
+dist
+
+# deps
+node_modules
+
+# env
+.env
+.env.*
+!.env.example
+
+# prisma
+/generated
+
+# storage
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+
+# logs & misc
+logs
+*.log
+.DS_Store
+.eslintcache
+coverage
+test-results
+playwright-report
+.playwright-cli

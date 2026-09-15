@@ -1,0 +1,157 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* ------------------------------------------------------------------
+   ANTREAN design tokens
+   Warna brand: biru laut yang tenang + aksen amber untuk "sedang dipanggil"
+------------------------------------------------------------------ */
+@theme static {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-200: #bcdaff;
+  --color-brand-300: #8ec3ff;
+  --color-brand-400: #59a1ff;
+  --color-brand-500: #337dff;
+  --color-brand-600: #1b5cf5;
+  --color-brand-700: #1547e1;
+  --color-brand-800: #183bb6;
+  --color-brand-900: #19378f;
+  --color-brand-950: #142257;
+}
+
+/**
+ * Warna primer dipilih PER TEMA, bukan satu nilai untuk keduanya.
+ *
+ * Nuxt UI menulis teks tombol primer dengan `--ui-text-inverted`, yang pada tema
+ * gelap berubah menjadi gelap. Dengan latar brand-600 yang tetap, teks gelap itu
+ * hanya mencapai 3,3:1 — di bawah 4,5:1 WCAG AA — dan setiap tombol utama di tema
+ * gelap ikut terkena (terukur lewat `npm run ux-audit`). Brand-400 yang lebih
+ * terang mengembalikan kontrasnya ke ±6:1 tanpa mengubah identitas warnanya, dan
+ * sekaligus menaikkan kontras tautan/ikon `text-primary` di atas latar gelap.
+ */
+:root {
+  --ui-primary: var(--color-brand-600);
+}
+
+.dark {
+  --ui-primary: var(--color-brand-400);
+}
+
+/* Status antrean — dipakai badge & display */
+@utility status-waiting {
+  @apply bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300;
+}
+@utility status-called {
+  @apply bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300;
+}
+@utility status-serving {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300;
+}
+@utility status-completed {
+  @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300;
+}
+@utility status-skipped {
+  @apply bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300;
+}
+@utility status-cancelled {
+  @apply bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300;
+}
+
+/* Angka antrean besar (display & tiket) */
+@utility queue-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply antialiased;
+}
+
+/* ------------------------------------------------------------------
+   Kontras teks sekunder pada tema gelap
+
+   Seluruh antarmuka memakai `text-slate-500` untuk teks pendukung. Di tema
+   terang rasionya aman, tetapi di atas latar gelap hanya mencapai 3,7:1 —
+   di bawah 4,5:1 yang diminta WCAG AA untuk teks berukuran biasa (terukur
+   lewat `npm run ux-audit`).
+
+   Dinaikkan satu langkah di satu tempat saja. Menyunting 211 pemakaian
+   `text-slate-500` satu per satu hanya akan membuat aturan yang sama
+   tersebar dan gampang terlewat pada halaman berikutnya.
+------------------------------------------------------------------ */
+@layer utilities {
+  .dark .text-slate-500 {
+    color: var(--color-slate-400);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Pemilih warna (Pickr)
+
+   Tema "nano" bawaannya berlatar terang. Tanpa penyesuaian ini, panelnya
+   menyala putih di tengah antarmuka gelap — dan nilai heksadesimal di dalamnya
+   nyaris tidak terbaca. Yang diubah hanya permukaan & teksnya; roda warna,
+   penggeser, dan tata letaknya dibiarkan apa adanya.
+------------------------------------------------------------------ */
+.pcr-app {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-slate-200);
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.12);
+}
+
+.dark .pcr-app {
+  background: var(--color-slate-900);
+  border-color: var(--color-slate-700);
+  color: var(--color-slate-100);
+}
+
+.dark .pcr-app .pcr-interaction input {
+  background: var(--color-slate-800);
+  color: var(--color-slate-100);
+}
+
+.dark .pcr-app .pcr-interaction .pcr-result {
+  border: 1px solid var(--color-slate-700);
+}
+
+/* Tombol "Pakai" mengikuti warna brand, bukan hijau bawaan Pickr. */
+.pcr-app .pcr-interaction .pcr-save {
+  background: var(--color-brand-600);
+}
+.dark .pcr-app .pcr-interaction .pcr-save {
+  background: var(--color-brand-400);
+  color: var(--color-slate-950);
+}
+
+/*
+  Kotak-kotak di belakang contoh warna, hanya pada kolom yang mengizinkan tembus
+  pandang. Tanpa ini, warna setengah tembus pandang cuma terlihat "lebih muda"
+  dan warna yang benar-benar bening terlihat seperti tombol yang belum diisi.
+*/
+.pcr-swatch-alpha {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, var(--color-slate-300) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-slate-300) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-slate-300) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-slate-300) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+}
+
+.dark .pcr-swatch-alpha {
+  background-color: var(--color-slate-800);
+  background-image:
+    linear-gradient(45deg, var(--color-slate-600) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-slate-600) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-slate-600) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-slate-600) 75%);
+}
