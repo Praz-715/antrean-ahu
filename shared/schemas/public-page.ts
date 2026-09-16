@@ -70,7 +70,7 @@ const footerSchema = z.object({
 
 export const publicPageThemeSchema = z.object({
   /* --- kunci lama; sudah dipakai baris yang tersimpan hari ini --- */
-  primaryColor: hexColorSchema.default('#1b5cf5'),
+  primaryColor: hexColorSchema.default('#132b48'),
   secondaryColor: hexColorSchema.default('#0f172a'),
   /** Warna aksen; kosong berarti mengikuti warna utama. */
   accentColor: hexColorSchema.optional(),

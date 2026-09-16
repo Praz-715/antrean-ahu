@@ -137,13 +137,21 @@ const userMenu = computed(() => [
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <!-- Sidebar -->
+    <!--
+      Sidebarnya navy di KEDUA tema, tidak mengikuti putih/gelap seperti sisi kanan.
+      Inilah satu-satunya bidang besar yang selalu berwarna merek, jadi identitas
+      navy-nya tetap terbaca walau pengguna memilih tema terang. Konsekuensinya
+      seluruh warna teks di dalamnya ditulis eksplisit (bukan `text-slate-600`
+      + varian `dark:`) karena latarnya tidak pernah berubah.
+    -->
     <aside
-      class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full border-r border-slate-200 bg-white transition-transform lg:translate-x-0 dark:border-slate-800 dark:bg-slate-900"
+      class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full border-r border-brand-800 bg-brand-900 transition-transform lg:translate-x-0"
       :class="{ 'translate-x-0': sidebarOpen }"
     >
-      <div class="flex h-16 items-center gap-2 border-b border-slate-200 px-5 dark:border-slate-800">
-        <UIcon name="i-lucide-layout-list" class="size-6 text-brand-600" />
-        <span class="text-lg font-extrabold tracking-tight">ANTREAN</span>
+      <div class="flex h-16 items-center border-b border-white/10 px-4">
+        <NuxtLink to="/admin/dashboard" class="min-w-0 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400">
+          <UiBrandLogo size="md" wordmark caption="Ditjen AHU" :plate="false" on-dark />
+        </NuxtLink>
       </div>
 
       <nav class="h-[calc(100vh-4rem)] space-y-1 overflow-y-auto p-3">
@@ -151,10 +159,10 @@ const userMenu = computed(() => [
           <NuxtLink
             v-if="item.to"
             :to="item.to"
-            class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+            class="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
             :class="isActive(item.to)
-              ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'"
+              ? 'bg-white/10 text-white before:absolute before:inset-y-1.5 before:-left-0.5 before:w-0.5 before:rounded-full before:bg-gold-400'
+              : 'text-brand-200 hover:bg-white/5 hover:text-white'"
             @click="sidebarOpen = false"
           >
             <UIcon :name="item.icon" class="size-4.5 shrink-0" />
@@ -164,7 +172,7 @@ const userMenu = computed(() => [
           <div v-else>
             <button
               type="button"
-              class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-brand-200 transition-colors hover:bg-white/5 hover:text-white"
               @click="openGroups[item.label] = !openGroups[item.label]"
             >
               <UIcon :name="item.icon" class="size-4.5 shrink-0" />
@@ -176,15 +184,15 @@ const userMenu = computed(() => [
               />
             </button>
 
-            <div v-show="openGroups[item.label]" class="mt-1 space-y-1 pl-4">
+            <div v-show="openGroups[item.label]" class="mt-1 space-y-1 border-l border-white/10 pl-4">
               <NuxtLink
                 v-for="child in item.children"
                 :key="child.label"
                 :to="child.to!"
-                class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                class="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
                 :class="isActive(child.to)
-                  ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300'
-                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'"
+                  ? 'bg-white/10 font-semibold text-white before:absolute before:inset-y-1.5 before:-left-0.5 before:w-0.5 before:rounded-full before:bg-gold-400'
+                  : 'text-brand-200/80 hover:bg-white/5 hover:text-white'"
                 @click="sidebarOpen = false"
               >
                 <UIcon :name="child.icon" class="size-4 shrink-0" />
@@ -213,9 +221,15 @@ const userMenu = computed(() => [
           @click="sidebarOpen = true"
         />
 
+        <!--
+          Di ponsel sidebar tertutup, jadi lambangnya diulang di sini — kalau tidak,
+          satu-satunya penanda identitas di layar sempit hanyalah nama organisasi.
+        -->
+        <UiBrandLogo size="xs" class="lg:hidden" />
+
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-medium text-slate-500">
-            {{ me?.organization?.name ?? 'ANTREAN' }}
+            {{ me?.organization?.name ?? 'Sistem Antrean AHU' }}
           </p>
         </div>
 

@@ -68,6 +68,8 @@ const pesan = computed(() => {
   <div class="flex min-h-screen flex-col items-center justify-center px-5 py-12" :style="cssVars">
     <div class="w-full max-w-md text-center">
       <img v-if="logo" :src="logo" alt="" class="mx-auto mb-6 h-14 w-auto object-contain">
+      <!-- Tanpa logo instansi, layar verifikasi ini tidak punya penanda apa pun -->
+      <UiBrandLogo v-else size="lg" class="mb-6" />
 
       <span
         class="mx-auto flex size-14 items-center justify-center rounded-2xl"

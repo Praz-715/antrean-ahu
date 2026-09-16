@@ -57,6 +57,11 @@ const perataan = computed(() => ({
   right: 'items-end text-right',
 }[hero.value.align]))
 
+/**
+ * Logo halaman, lalu logo organisasi. Bila keduanya kosong, lambang sistem yang
+ * tampil (lihat template) — halaman publik tanpa logo sebelumnya membuka dengan
+ * hero tanpa identitas sama sekali, hanya warna dan judul.
+ */
 const logo = computed(() => props.view.page.logoUrl || props.view.organization?.logoUrl || null)
 const aksen = computed(() => accentOf(props.view.page.theme))
 </script>
@@ -114,9 +119,10 @@ const aksen = computed(() => accentOf(props.view.page.theme))
         alt=""
         class="mb-5 h-12 w-auto object-contain @2xl:h-16"
       >
+      <UiBrandLogo v-else size="xl" class="mb-5" />
 
       <p class="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-75">
-        {{ view.organization?.name || 'Antrean' }}
+        {{ view.organization?.name || 'Sistem Antrean AHU' }}
       </p>
 
       <h1 class="mt-2 text-balance text-3xl font-extrabold leading-[1.1] @2xl:text-5xl">

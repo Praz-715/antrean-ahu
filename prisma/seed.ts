@@ -143,7 +143,7 @@ async function seedEvent(organizationId: string) {
       status: 'OPEN',
       timezone: 'Asia/Jakarta',
       allowFinishAfterClose: true,
-      branding: { primaryColor: '#1b5cf5', secondaryColor: '#0f172a' },
+      branding: { primaryColor: '#132b48', secondaryColor: '#0a1b30' },
       settings: { recallLimit: 3, estimateEnabled: true },
     },
   })
@@ -173,7 +173,7 @@ async function seedEvent(organizationId: string) {
 
 async function seedQueueTypes(eventId: string) {
   const definitions = [
-    { code: 'A', name: 'Pelayanan Umum', prefix: 'A', color: '#1b5cf5', icon: 'i-lucide-users', order: 1 },
+    { code: 'A', name: 'Pelayanan Umum', prefix: 'A', color: '#132b48', icon: 'i-lucide-users', order: 1 },
     { code: 'B', name: 'Pelayanan Khusus', prefix: 'B', color: '#7c3aed', icon: 'i-lucide-star', order: 2 },
     { code: 'C', name: 'Informasi', prefix: 'C', color: '#0d9488', icon: 'i-lucide-info', order: 3 },
   ]
@@ -302,7 +302,7 @@ async function seedPublicPage(eventId: string, appUrl: string) {
       title: 'Demo Organization',
       subtitle: 'Silakan ambil nomor antrean',
       description: 'Halaman contoh pengambilan antrean.',
-      theme: { primaryColor: '#1b5cf5', mode: 'light' },
+      theme: { primaryColor: '#132b48', mode: 'light' },
       isPublished: true,
       maxPerIpPerDay: 20,
     },

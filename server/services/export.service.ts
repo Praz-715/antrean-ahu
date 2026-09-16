@@ -24,7 +24,8 @@ export interface ExportFilters {
   eventId: string
   from: string
   to: string
-  queueTypeId?: string
+  /** Kosong berarti seluruh jenis antrean. */
+  queueTypeIds?: string[]
   status?: string
 }
 
@@ -59,11 +60,42 @@ export const exportService = {
       include: { requestedBy: { select: { id: true, name: true } } },
     })
 
-    return jobs.map(job => ({
-      ...job,
-      isMine: job.requestedById === userId,
-      downloadUrl: job.status === 'DONE' ? `/api/admin/exports/${job.id}/download` : null,
-    }))
+    /**
+     * Nama jenis antrean yang dipakai penyaring ikut dikirim, bukan hanya id-nya.
+     *
+     * Daftar ini memuat pekerjaan dari SELURUH event milik organisasi, sementara
+     * halaman laporan hanya memegang jenis antrean event yang sedang dipilih.
+     * Kalau penerjemahan id→nama diserahkan ke klien, baris milik event lain
+     * hanya bisa menampilkan ULID mentah — keterangan yang tidak berarti apa pun
+     * bagi yang membacanya.
+     *
+     * Satu kueri untuk seluruh halaman, bukan satu per pekerjaan; jenis antrean
+     * yang sudah dihapus tidak ikut terbaca dan turun ke id-nya di klien.
+     */
+    const idTerpakai = [...new Set(
+      jobs.flatMap((job) => {
+        const filters = job.filters as { queueTypeIds?: unknown } | null
+        return Array.isArray(filters?.queueTypeIds) ? filters.queueTypeIds.filter(v => typeof v === 'string') : []
+      }),
+    )] as string[]
+
+    const namaJenis = idTerpakai.length
+      ? await prisma.queueType.findMany({
+          where: { id: { in: idTerpakai }, event: { organizationId } },
+          select: { id: true, code: true, name: true },
+        })
+      : []
+    const peta = new Map(namaJenis.map(t => [t.id, `${t.code} · ${t.name}`]))
+
+    return jobs.map((job) => {
+      const filters = job.filters as { queueTypeIds?: string[] } | null
+      return {
+        ...job,
+        isMine: job.requestedById === userId,
+        queueTypeLabels: (filters?.queueTypeIds ?? []).map(id => peta.get(id) ?? id),
+        downloadUrl: job.status === 'DONE' ? `/api/admin/exports/${job.id}/download` : null,
+      }
+    })
   },
 
   async getById(organizationId: string, id: string) {

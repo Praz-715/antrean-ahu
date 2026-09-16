@@ -93,7 +93,7 @@ export const publishService = {
         logoUrl: input.logoUrl || null,
         backgroundUrl: input.backgroundUrl || null,
         infoHtml: input.infoHtml || null,
-        theme: (input.theme ?? { primaryColor: '#1b5cf5' }) as never,
+        theme: (input.theme ?? { primaryColor: '#132b48' }) as never,
         allowedQueueTypeIds: (input.allowedQueueTypeIds ?? []) as never,
         maxPerIpPerDay: input.maxPerIpPerDay ?? 5,
         requireCaptcha: input.requireCaptcha ?? false,

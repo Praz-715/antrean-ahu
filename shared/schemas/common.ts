@@ -12,7 +12,7 @@ export const dateSchema = z
 
 export const hexColorSchema = z
   .string()
-  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Warna harus berformat hex, mis. #1b5cf5')
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Warna harus berformat hex, mis. #132b48')
 
 export const slugSchema = z
   .string()

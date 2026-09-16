@@ -13,7 +13,12 @@ const bodySchema = z.object({
   eventId: idSchema,
   from: dateSchema,
   to: dateSchema,
-  queueTypeId: idSchema.optional(),
+  /*
+   * Batas 100 hanya penjaga kewarasan: daftar sepanjang itu sudah pasti berarti
+   * "semua", dan larik tanpa batas dari badan permintaan membuat kueri `IN`
+   * tumbuh sebesar apa pun yang dikirim penelepon.
+   */
+  queueTypeIds: z.array(idSchema).max(100).optional(),
   status: z.string().max(20).optional(),
 }).refine(v => v.from <= v.to, {
   message: 'Tanggal awal tidak boleh setelah tanggal akhir',

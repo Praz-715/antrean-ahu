@@ -35,7 +35,7 @@ useHead(() => ({ title: data.value ? `Antrean ${data.value.queueNumber}` : 'Antr
 
 const isCalled = computed(() => data.value && ['CALLED', 'SERVING'].includes(data.value.status))
 const isFinished = computed(() => data.value && ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(data.value.status))
-const primary = computed(() => data.value?.queueType.color ?? '#1b5cf5')
+const primary = computed(() => data.value?.queueType.color ?? '#132b48')
 
 // ---- realtime + notifikasi ----
 const { connected, on } = useSocket({ role: 'visitor', publicToken: token })
@@ -143,6 +143,11 @@ async function submitRating() {
 <template>
   <div class="min-h-screen bg-slate-50 pb-10 dark:bg-slate-950">
     <div v-if="error" class="mx-auto max-w-md px-4 py-20 text-center">
+      <!-- Pembungkus flex: akar UiBrandLogo ber-`inline-flex`, jadi tanpa ini ia
+           berbagi baris dengan ikon di bawahnya. -->
+      <div class="mb-8 flex justify-center">
+        <UiBrandLogo size="md" />
+      </div>
       <UIcon name="i-lucide-search-x" class="mx-auto size-12 text-slate-400" />
       <h1 class="mt-4 text-xl font-bold">
         Antrean tidak ditemukan
@@ -160,7 +165,8 @@ async function submitRating() {
         :class="justCalled ? 'animate-pulse' : ''"
         :style="{ backgroundColor: primary }"
       >
-        <p class="text-5xl">
+        <UiBrandLogo size="md" />
+        <p class="mt-6 text-5xl">
           🔔
         </p>
         <p class="mt-3 text-sm font-semibold uppercase tracking-[0.3em] text-white/80">
@@ -182,7 +188,8 @@ async function submitRating() {
 
       <!-- Tiket normal -->
       <div v-else class="px-5 pb-14 pt-10 text-center text-white" :style="{ backgroundColor: primary }">
-        <p class="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
+        <UiBrandLogo size="md" />
+        <p class="mt-6 text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
           Antrean Anda
         </p>
         <p class="queue-number mt-2 text-7xl">

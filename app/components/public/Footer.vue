@@ -32,7 +32,7 @@ const teks = computed(() => props.view.page.theme.footerText)
       </p>
 
       <p v-if="cfg.showPoweredBy" class="text-xs text-slate-400">
-        Ditenagai <span class="font-semibold">ANTREAN</span>
+        Ditenagai <span class="font-semibold">Sistem Antrean AHU</span>
       </p>
     </div>
   </footer>

@@ -145,7 +145,8 @@ export async function geserSampaiPas(page, base, state) {
 export async function masukLewatUi(page, base, email, password = 'password123') {
   const state = pantauTekaTeki(page)
   await page.locator('input[type="email"]').fill(email)
-  await page.locator('input[type="password"]').fill(password)
+  // Lihat catatan selektor kata sandi di scripts/ux-audit.mjs.
+  await page.locator('input[autocomplete="current-password"]').fill(password)
   await page.locator('button[type="submit"]').click()
   await geserSampaiPas(page, base, state)
 }

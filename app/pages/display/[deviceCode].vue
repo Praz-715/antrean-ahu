@@ -4,6 +4,7 @@ import { apiFetch } from '../../composables/useApi'
 import { SOCKET_EVENTS } from '#shared/constants/socket'
 import { PRIORITY_LABEL, isPriorityQueue } from '#shared/constants/queue'
 import { announcementText } from '../../composables/useSpeech'
+import { onColor, readableColor } from '#shared/utils/color'
 
 definePageMeta({ layout: false })
 
@@ -199,6 +200,14 @@ const highlighted = ref<string | null>(null)
 const audioUnlocked = ref(false)
 
 /**
+ * Peramban menolak membuka suara tanpa interaksi pengguna.
+ *
+ * Baru bernilai `true` SETELAH percobaan otomatis benar-benar ditolak — bukan
+ * sejak awal. Selama masih `false`, layar tidak menampilkan apa pun soal suara.
+ */
+const audioBlocked = ref(false)
+
+/**
  * Bunyikan panggilan: nada panggil dulu, baru suaranya.
  *
  * Sumber suaranya mengikuti pengaturan (yang boleh ditimpa per event): suara peramban,
@@ -341,30 +350,104 @@ onBeforeUnmount(() => clearInterval(pollTimer))
  */
 const { isFullscreen, supported: fullscreenSupported, toggle: toggleFullscreen } = useFullscreen()
 
-/** Browser memblokir suara sampai ada interaksi pengguna — sediakan satu tombol. */
-async function unlockAudio() {
-  speech.speak('Pengumuman suara aktif.', 1)
+/**
+ * Siapkan suara layar ini.
+ *
+ * Elemen audio punya izinnya sendiri, dan izin itu melekat pada ELEMEN — bukan
+ * pada berkasnya. Karena itu ia harus disentuh sekali di sini apa pun setelannya.
+ *
+ * Sebelumnya hanya nada panggil yang dipakai membukanya, sehingga event yang
+ * memakai TTS (Google Translate atau layanan sendiri) TANPA nada panggil tidak
+ * pernah mendapat izin — panggilannya selalu jatuh diam-diam ke suara peramban.
+ * Bila nadanya kosong, nada bawaan sistem yang dipakai sebagai pembuka; diputar
+ * tanpa volume, jadi tidak terdengar siapa pun. Berkas hening berbentuk `data:`
+ * tidak bisa dipakai karena CSP hanya mengizinkan media dari origin sendiri.
+ *
+ * `diam` membedakan dua pemanggilnya. Percobaan otomatis saat layar dibuka tidak
+ * mengucapkan apa pun: layar ini digantung di ruang tunggu, dan setiap muat ulang
+ * — termasuk yang dipicu `emitRouteChunkError` setelah deploy — akan menjadi
+ * pengumuman yang tidak ada hubungannya dengan antrean. Yang dipicu ketukan tetap
+ * berbicara, karena di situlah orangnya sedang menunggu bukti suaranya hidup.
+ */
+async function unlockAudio({ diam = false } = {}): Promise<boolean> {
+  const berhasil = await callSound.unlock(
+    state.value?.settings?.voiceChimeUrl ?? SYSTEM_TONES[0]!.url,
+  )
 
   /**
-   * Elemen audio punya izinnya sendiri, dan izin itu melekat pada ELEMEN — bukan
-   * pada berkasnya. Karena itu ia harus disentuh sekali di sini apa pun setelannya.
+   * Mesin ucap peramban dihangatkan terpisah dari elemen audio: keduanya mesin
+   * yang berbeda dengan izinnya masing-masing, dan event yang memakai suara
+   * peramban tanpa nada panggil tidak menyentuh elemen audio sama sekali.
    *
-   * Sebelumnya hanya nada panggil yang dipakai membukanya, sehingga event yang
-   * memakai TTS (Google Translate atau layanan sendiri) TANPA nada panggil tidak
-   * pernah mendapat izin — panggilannya selalu jatuh diam-diam ke suara peramban.
-   * Bila nadanya kosong, nada bawaan sistem yang dipakai sebagai pembuka; diputar
-   * tanpa volume, jadi tidak terdengar siapa pun. Berkas hening berbentuk `data:`
-   * tidak bisa dipakai karena CSP hanya mengizinkan media dari origin sendiri.
+   * Volume dikembalikan segera setelah `speak()` karena `drain()` menyalin
+   * volume ke utterance-nya saat itu juga — ucapan berikutnya tidak ikut senyap.
    */
-  await callSound.unlock(state.value?.settings?.voiceChimeUrl ?? SYSTEM_TONES[0]!.url)
-  audioUnlocked.value = true
+  if (diam) {
+    const volumeAsli = speech.settings.volume
+    speech.settings.volume = 0
+    speech.speak('.', 1)
+    speech.settings.volume = volumeAsli
+  }
+  else {
+    speech.speak('Pengumuman suara aktif.', 1)
+  }
+
+  audioUnlocked.value = berhasil
+  audioBlocked.value = !berhasil
+  return berhasil
 }
+
+/**
+ * Nyalakan suara begitu layar terbuka, tanpa menunggu siapa pun menekan tombol.
+ *
+ * Ditunda sampai `state` turun karena nada panggil yang benar baru diketahui dari
+ * situ; membuka dengan nada bawaan lalu menukarnya membuat panggilan pertama
+ * tersendat pada sebagian perangkat.
+ *
+ * Peramban BOLEH menolaknya — kebijakan autoplay hanya melepas `play()` yang
+ * berasal dari interaksi. Jadi dua jaring pengaman dipasang sekaligus: ketukan,
+ * sentuhan, atau tombol apa pun di halaman ini mencobanya lagi, dan bila sampai
+ * saat itu masih ditolak barulah layar menampilkan tombolnya.
+ */
+const sudahMencobaOtomatis = ref(false)
+
+watch(() => state.value?.settings, (settings) => {
+  if (!settings || sudahMencobaOtomatis.value || audioUnlocked.value) return
+  if (settings.voiceEnabled === false) return
+  sudahMencobaOtomatis.value = true
+  void unlockAudio({ diam: true })
+}, { immediate: true })
+
+/**
+ * Interaksi APA PUN di layar ini menjadi pembuka suara.
+ *
+ * Perangkat display lazimnya disentuh sekali saat dipasang — untuk masuk ke layar
+ * penuh, misalnya. Dengan pendengar ini ketukan itu sendiri sudah cukup, jadi
+ * tidak ada tombol khusus yang harus dicari lebih dulu.
+ */
+function cobaBukaSuaraDariInteraksi() {
+  if (audioUnlocked.value) return
+  if (state.value?.settings?.voiceEnabled === false) return
+  void unlockAudio({ diam: true })
+}
+
+onMounted(() => {
+  for (const nama of ['pointerdown', 'keydown', 'touchstart'] as const) {
+    window.addEventListener(nama, cobaBukaSuaraDariInteraksi, { passive: true })
+  }
+})
+
+onBeforeUnmount(() => {
+  for (const nama of ['pointerdown', 'keydown', 'touchstart'] as const) {
+    window.removeEventListener(nama, cobaBukaSuaraDariInteraksi)
+  }
+})
 
 /**
  * Nada panggil yang BARU dipilih admin ikut disiapkan tanpa menunggu ketukan lagi.
  *
- * Urutan yang sangat mungkin terjadi di lapangan: layar dinyalakan dan tombol
- * "Aktifkan Suara" ditekan pagi-pagi, nadanya baru dipasang admin siang hari. Tanpa
+ * Urutan yang sangat mungkin terjadi di lapangan: layar dinyalakan dan suaranya
+ * terbuka pagi-pagi, nadanya baru dipasang admin siang hari. Tanpa
  * ini, elemen audio belum pernah menyentuh berkas itu dan panggilan pertama bisa
  * tersendat. Diputar tanpa volume, jadi tidak terdengar siapa pun.
  */
@@ -375,7 +458,45 @@ watch(() => state.value?.settings?.voiceChimeUrl, (url) => {
 /** Tombol buka-suara tidak ada gunanya bila suara memang dimatikan admin. */
 const voiceEnabled = computed(() => state.value?.settings?.voiceEnabled !== false)
 
-const primary = computed(() => state.value?.branding?.primaryColor ?? '#1b5cf5')
+/**
+ * Warna jenis antrean, diterangkan lebih dulu bila papannya sedang gelap.
+ *
+ * Warna ini dipakai sebagai WARNA TEKS — nomor antrean setinggi 14rem dan lencana
+ * kode layanan — sementara papan antrean berlatar hampir hitam pada mode gelap
+ * (mode bawaannya, karena layarnya digantung di ruang tunggu). Sebelumnya nilainya
+ * dipakai mentah, jadi papannya hanya terbaca selama admin kebetulan memilih warna
+ * terang: navy pekat di atas kartu gelap hanya mencapai ±1,4:1 dan nomornya
+ * praktis hilang dari jarak beberapa meter.
+ *
+ * `readableColor` sudah ada untuk kasus ini dan dipakai di halaman lain; di sini
+ * ia dipanggil dengan `boardDark`, bukan `useColorMode()`, karena papan ini
+ * menyimpan pilihan temanya sendiri (bisa ditimpa lewat kueri `?theme=`).
+ */
+function warnaLayanan(hex: string) {
+  return readableColor(hex, boardDark.value)
+}
+
+const primary = computed(() => state.value?.branding?.primaryColor ?? '#132b48')
+
+/**
+ * Warna teks kepala halaman, dihitung dari warna latarnya sendiri.
+ *
+ * Kepala memakai warna merek sebagai LATAR, tetapi sebelumnya tidak pernah
+ * menyetel warna teksnya — jadi nama instansi dan jam mewarisi `text-slate-900`
+ * dari akar papan. Di mode terang hasilnya navy gelap di atas latar navy: rasionya
+ * di bawah 1,5:1 dan judulnya praktis hilang, padahal justru itu yang dibaca dari
+ * seberang ruangan. Sisa kepala menyiasatinya dengan menulis `text-white/70`
+ * satu per satu, yang berarti warna terang dipatok tanpa ada yang menjamin
+ * latarnya memang gelap.
+ *
+ * `onColor` sudah ada untuk pertanyaan ini — putih di atas warna tua, gelap di
+ * atas warna muda — dan dipakai halaman publik untuk hero yang persis sama
+ * bentuk masalahnya.
+ */
+const headerFg = computed(() => onColor(primary.value))
+
+/** Beberapa lencana butuh nada berbeda, bukan sekadar transparansi dari warna teks. */
+const headerOnDark = computed(() => headerFg.value === '#ffffff')
 
 /** Template kustom mengambil alih seluruh layar; tanpa itu dipakai tata letak bawaan. */
 const useTemplate = computed(() => (state.value?.template?.widgets?.length ?? 0) > 0)
@@ -428,13 +549,19 @@ function lastUpdateText() {
           {{ connected ? 'ONLINE' : rejected ? 'PERLU PAIRING ULANG' : 'OFFLINE' }}
         </span>
         <span>{{ state.openState.isOpen ? 'BUKA' : 'TUTUP' }}</span>
+<!--
+          Hanya tampil bila peramban benar-benar MENOLAK percobaan otomatis.
+          Dalam pemakaian normal tombol ini tidak pernah terlihat; ia ada supaya
+          layar yang bisu punya sebab yang kelihatan, bukan diam tanpa penjelasan.
+        -->
         <button
-          v-if="!audioUnlocked && voiceEnabled"
+          v-if="audioBlocked && voiceEnabled"
           type="button"
-          class="rounded-full bg-slate-900/10 px-3 py-1 font-medium text-slate-700 hover:bg-slate-900/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-          @click="unlockAudio"
+          class="rounded-full bg-amber-500/20 px-3 py-1 font-medium text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+          title="Peramban memblokir suara otomatis. Ketuk untuk menyalakannya."
+          @click="unlockAudio()"
         >
-          Aktifkan Suara
+          Suara Diblokir — Ketuk
         </button>
         <button
           v-if="fullscreenSupported"
@@ -454,16 +581,30 @@ function lastUpdateText() {
 
     <template v-else-if="state">
       <!-- Header -->
-      <header class="flex items-center gap-6 px-10 py-6" :style="{ backgroundColor: primary }">
+      <header class="flex items-center gap-6 px-10 py-6" :style="{ backgroundColor: primary, color: headerFg }">
+        <!--
+          Logo instansi bila sudah diunggah, kalau tidak lambang sistemnya. Layar ini
+          digantung di ruang tunggu dan ditonton dari jauh — kepala tanpa lambang
+          hanya menyisakan nama instansi sebagai penanda.
+
+          Lambangnya berpakai alas navy. Warna kepala dipilih admin dan tidak dijamin
+          gelap, sementara garis logonya emas — di atas warna muda ia hilang tanpa alas.
+        -->
         <img
           v-if="state.organization?.logoUrl"
           :src="state.organization.logoUrl"
           alt=""
-          class="h-14 w-auto object-contain"
+          class="h-14 w-auto shrink-0 object-contain"
         >
+        <UiBrandLogo v-else size="xl" />
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-white/60">
-            Antrean
+          <!-- Emas hanya terbaca di atas warna tua; di atas warna muda ia jadi teks
+               kuning di latar terang, jadi yang dipakai warna kepala yang diredupkan. -->
+          <p
+            class="text-sm font-semibold uppercase tracking-[0.3em]"
+            :class="headerOnDark ? 'text-gold-400' : 'opacity-70'"
+          >
+            Sistem Antrean AHU
           </p>
           <h1 class="truncate text-3xl font-extrabold leading-tight">
             {{ state.organization?.name ?? state.event.name }}
@@ -474,7 +615,7 @@ function lastUpdateText() {
           <p class="text-4xl font-bold tabular-nums">
             {{ timeText }}
           </p>
-          <p class="text-sm text-white/70">
+          <p class="text-sm opacity-75">
             {{ dateText }}
           </p>
         </div>
@@ -482,14 +623,26 @@ function lastUpdateText() {
         <div class="flex flex-col items-end gap-1">
           <span
             class="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
-            :class="connected ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'"
+            :class="connected
+              ? (headerOnDark ? 'bg-emerald-500/25 text-emerald-200' : 'bg-emerald-600/15 text-emerald-900')
+              : (headerOnDark ? 'bg-rose-500/25 text-rose-200' : 'bg-rose-600/15 text-rose-900')"
           >
             <span class="size-2 rounded-full" :class="connected ? 'animate-pulse bg-emerald-400' : 'bg-rose-400'" />
             {{ connected ? 'ONLINE' : rejected ? 'PERLU PAIRING ULANG' : 'OFFLINE' }}
           </span>
+          <!--
+            Saat BUKA latarnya diambil dari warna teks kepala itu sendiri, jadi
+            lencananya ikut terbaca baik di atas warna tua maupun muda tanpa perlu
+            dua kelas terpisah.
+          -->
           <span
             class="rounded-full px-3 py-1 text-xs font-semibold"
-            :class="state.openState.isOpen ? 'bg-white/20' : 'bg-rose-500/30'"
+            :class="state.openState.isOpen
+              ? ''
+              : (headerOnDark ? 'bg-rose-500/30 text-rose-100' : 'bg-rose-600/20 text-rose-900')"
+            :style="state.openState.isOpen
+              ? { backgroundColor: 'color-mix(in srgb, currentColor 18%, transparent)' }
+              : undefined"
           >
             {{ state.openState.isOpen ? 'BUKA' : 'TUTUP' }}
           </span>
@@ -517,7 +670,7 @@ function lastUpdateText() {
             <div class="mb-4 flex items-center gap-3">
               <span
                 class="flex size-12 items-center justify-center rounded-xl text-xl font-extrabold"
-                :style="{ backgroundColor: entry.queueType.color + '33', color: entry.queueType.color }"
+                :style="{ backgroundColor: entry.queueType.color + '33', color: warnaLayanan(entry.queueType.color) }"
               >
                 {{ entry.queueType.code }}
               </span>
@@ -545,7 +698,7 @@ function lastUpdateText() {
                   isSingle ? 'text-[14rem]' : 'text-[8rem]',
                   highlighted === entry.current?.queueNumber ? 'animate-pulse' : '',
                 ]"
-                :style="{ color: entry.current ? entry.queueType.color : (boardDark ? '#334155' : '#cbd5e1') }"
+                :style="{ color: entry.current ? warnaLayanan(entry.queueType.color) : (boardDark ? '#334155' : '#cbd5e1') }"
               >
                 {{ entry.current?.queueNumber ?? '—' }}
               </p>
@@ -586,14 +739,16 @@ function lastUpdateText() {
           {{ state.openState.message }}
         </div>
 
+<!-- Lihat catatan pada tombol kembarannya di tata letak template. -->
         <button
-          v-if="!audioUnlocked && voiceEnabled"
+          v-if="audioBlocked && voiceEnabled"
           type="button"
-          class="flex items-center gap-2 rounded-full bg-slate-900/10 px-4 py-1.5 font-medium text-slate-700 hover:bg-slate-900/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-          @click="unlockAudio"
+          class="flex shrink-0 items-center gap-2 rounded-full bg-amber-500/20 px-4 py-1.5 font-medium text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+          title="Peramban memblokir suara otomatis. Ketuk untuk menyalakannya."
+          @click="unlockAudio()"
         >
-          <UIcon name="i-lucide-volume-2" class="size-4" />
-          Aktifkan Suara
+          <UIcon name="i-lucide-volume-off" class="size-4" />
+          Suara Diblokir — Ketuk
         </button>
 
         <button

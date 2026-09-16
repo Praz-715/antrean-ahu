@@ -14,6 +14,9 @@ defineProps<{ ticket: TicketPayload }>()
 <template>
   <div class="antrean-ticket">
     <div class="antrean-ticket__paper">
+      <p class="antrean-ticket__brand">
+        Sistem Antrean AHU
+      </p>
       <p class="antrean-ticket__org">
         {{ ticket.organizationName }}
       </p>
@@ -85,6 +88,15 @@ defineProps<{ ticket: TicketPayload }>()
     text-align: center;
     font-family: ui-monospace, "Courier New", monospace;
     color: #000;
+  }
+
+  .antrean-ticket__brand {
+    font-size: 7pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding-bottom: 1.5mm;
+    margin-bottom: 2mm;
+    border-bottom: 0.3mm solid #000;
   }
 
   .antrean-ticket__org {

@@ -19,10 +19,10 @@ export const BRANDING_PRESETS: BrandingPreset[] = [
   {
     key: 'professional-blue',
     label: 'Biru Profesional',
-    description: 'Bawaan ANTREAN — tenang dan mudah dibaca.',
-    primary: '#1b5cf5',
+    description: 'Bawaan Sistem Antrean AHU — tenang dan mudah dibaca.',
+    primary: '#132b48',
     secondary: '#0f172a',
-    accent: '#337dff',
+    accent: '#2d5892',
   },
   {
     key: 'government',

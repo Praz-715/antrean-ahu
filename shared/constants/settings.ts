@@ -26,6 +26,9 @@ export const SETTING_KEYS = {
   SYSTEM_TIMEZONE: 'system.timezone',
   SYSTEM_SESSION_MINUTES: 'system.sessionDurationMinutes',
   SYSTEM_LANDING: 'system.landing',
+  UI_LOADING_ROUTE: 'ui.loadingRoute',
+  UI_LOADING_API: 'ui.loadingApi',
+  UI_LOADING_SKELETON: 'ui.loadingSkeleton',
 } as const
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
@@ -76,6 +79,48 @@ export const VOICE_PROVIDER_OPTIONS: Array<{ label: string, value: VoiceProvider
 /** Nada bawaan sistem memakai awalan ini; sisanya dianggap id berkas Media Library. */
 export const SYSTEM_TONE_VALUE_PREFIX = 'system:'
 
+/* ------------------------------------------------------------------
+   Indikator "sedang memuat"
+
+   Tiga pengaturan terpisah, bukan satu "gaya" yang memaksa ketiganya berubah
+   bersamaan. Ketiganya muncul di tempat dan situasi yang berbeda — pindah
+   halaman, klik tombol, dan tabel yang datanya belum turun — dan pemasangan
+   yang sama bisa butuh jawaban berbeda untuk masing-masing. Layar antrean di
+   ruang tunggu, misalnya, lebih baik tanpa animasi apa pun, sementara panel
+   operator justru butuh tanda yang jelas bahwa panggilannya sedang diproses.
+
+   Nilai bawaan ketiganya PERSIS perilaku sebelum pengaturan ini ada, jadi
+   memasang pembaruan ini tidak mengubah tampilan siapa pun sampai ada yang
+   memilih sendiri.
+------------------------------------------------------------------ */
+
+export const ROUTE_LOADING_STYLES = ['bar', 'overlay', 'spinner'] as const
+export type RouteLoadingStyle = (typeof ROUTE_LOADING_STYLES)[number]
+
+export const ROUTE_LOADING_OPTIONS: Array<{ label: string, value: RouteLoadingStyle }> = [
+  { label: 'Bilah progres di atas', value: 'bar' },
+  { label: 'Overlay layar penuh', value: 'overlay' },
+  { label: 'Spinner di pojok', value: 'spinner' },
+]
+
+export const API_LOADING_STYLES = ['bar', 'spinner', 'none'] as const
+export type ApiLoadingStyle = (typeof API_LOADING_STYLES)[number]
+
+export const API_LOADING_OPTIONS: Array<{ label: string, value: ApiLoadingStyle }> = [
+  { label: 'Ikut bilah progres di atas', value: 'bar' },
+  { label: 'Spinner di pojok', value: 'spinner' },
+  { label: 'Tanpa indikator', value: 'none' },
+]
+
+export const SKELETON_STYLES = ['pulse', 'shimmer', 'static'] as const
+export type SkeletonStyle = (typeof SKELETON_STYLES)[number]
+
+export const SKELETON_OPTIONS: Array<{ label: string, value: SkeletonStyle }> = [
+  { label: 'Berkedip halus (pulse)', value: 'pulse' },
+  { label: 'Kilau bergerak (shimmer)', value: 'shimmer' },
+  { label: 'Diam tanpa animasi', value: 'static' },
+]
+
 export type SettingValue = boolean | number | string
 
 export interface SettingDefinition {
@@ -106,7 +151,7 @@ export interface SettingDefinition {
   showWhen?: { key: SettingKey, equals: SettingValue }
 }
 
-export type SettingGroupKey = 'queue' | 'feedback' | 'display' | 'system'
+export type SettingGroupKey = 'queue' | 'feedback' | 'display' | 'appearance' | 'system'
 
 export const SETTING_GROUPS: Array<{ key: SettingGroupKey, label: string, icon: string, description: string }> = [
   {
@@ -126,6 +171,12 @@ export const SETTING_GROUPS: Array<{ key: SettingGroupKey, label: string, icon: 
     label: 'Display & Suara',
     icon: 'i-lucide-monitor-speaker',
     description: 'Perilaku bawaan layar antrean dan pengumuman suara.',
+  },
+  {
+    key: 'appearance',
+    label: 'Tampilan Loading',
+    icon: 'i-lucide-loader-circle',
+    description: 'Tanda yang muncul saat halaman atau data sedang dimuat.',
   },
   {
     key: 'system',
@@ -252,7 +303,7 @@ export const SETTINGS_CATALOG: SettingDefinition[] = [
   {
     key: SETTING_KEYS.DISPLAY_VOICE_PROVIDER,
     label: 'Sumber suara',
-    help: 'Suara peramban memakai suara yang terpasang di perangkat layar (tidak perlu internet, tetapi kualitasnya beda-beda per perangkat). Google Translate menyeragamkan suara semua layar tanpa kunci API, asalkan ada internet. TTS eksternal untuk layanan berbayar milik sendiri. "Hanya nada panggil" tidak membacakan nomor sama sekali — cukup bunyi dari Media Library.',
+    help: 'Sumber suara internal browser, Google Translate, layanan TTS eksternal, atau hanya nada panggil.',
     group: 'display',
     type: 'select',
     default: 'browser',
@@ -272,7 +323,7 @@ export const SETTINGS_CATALOG: SettingDefinition[] = [
   {
     key: SETTING_KEYS.DISPLAY_VOICE_CHIME_MEDIA_ID,
     label: 'Nada panggil',
-    help: 'Nada bawaan sistem atau berkas dari Media Library, dibunyikan sebelum nomor dibacakan — atau sebagai satu-satunya bunyi, bila sumber suaranya "Hanya nada panggil".',
+    help: 'Nada bawaan sistem atau berkas dari Media Library, dibunyikan sebelum nomor dibacakan — atau sebagai satu-satunya bunyi".',
     group: 'display',
     type: 'media',
     mediaType: 'AUDIO',
@@ -312,11 +363,38 @@ export const SETTINGS_CATALOG: SettingDefinition[] = [
   },
   {
     key: SETTING_KEYS.SYSTEM_LANDING,
-    label: 'Halaman pangkal (/)',
-    help: 'Yang dilihat pengunjung saat membuka alamat utama tanpa tautan atau QR — halaman sambutan, daftar semua halaman publik, atau langsung satu event.',
+    label: 'Halaman root (/)',
+    help: 'Yang dilihat pengunjung saat membuka alamat utama',
     group: 'system',
     type: 'landing',
     default: LANDING_NONE,
+  },
+  {
+    key: SETTING_KEYS.UI_LOADING_ROUTE,
+    label: 'Saat pindah halaman',
+    help: '',
+    group: 'appearance',
+    type: 'select',
+    default: 'bar',
+    options: ROUTE_LOADING_OPTIONS,
+  },
+  {
+    key: SETTING_KEYS.UI_LOADING_API,
+    label: 'Saat memuat data atau menyimpan',
+    help: '',
+    group: 'appearance',
+    type: 'select',
+    default: 'bar',
+    options: API_LOADING_OPTIONS,
+  },
+  {
+    key: SETTING_KEYS.UI_LOADING_SKELETON,
+    label: 'Kerangka isi halaman',
+    help: '',
+    group: 'appearance',
+    type: 'select',
+    default: 'pulse',
+    options: SKELETON_OPTIONS,
   },
 ]
 

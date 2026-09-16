@@ -188,14 +188,22 @@ async function main() {
     }
 
     await page.locator('input[type="email"]').fill('superadmin@antrean.local')
-    await page.locator('input[type="password"]').fill('sandi-yang-salah')
+    /**
+     * Kolom kata sandi diseleksi lewat `autocomplete`, bukan `type`.
+     *
+     * Halaman masuk punya tombol mata yang menukar `type` antara `password` dan
+     * `text`; selektor `input[type="password"]` berhenti cocok begitu sandinya
+     * ditampilkan. `autocomplete="current-password"` menandai kolom yang sama dan
+     * tidak pernah berubah.
+     */
+    await page.locator('input[autocomplete="current-password"]').fill('sandi-yang-salah')
     await page.locator('button[type="submit"]').click()
     await geserSampaiPas(page, BASE, tekaTeki)
     let errorShown = await pesanGagalTampil()
     if (!errorShown && signInCalls.includes(429)) {
       console.log('  catatan: login dibatasi rate limit (429); menunggu 60 detik lalu mencoba sekali lagi')
       await page.waitForTimeout(60_000)
-      await page.locator('input[type="password"]').fill('sandi-yang-salah')
+      await page.locator('input[autocomplete="current-password"]').fill('sandi-yang-salah')
       await page.locator('button[type="submit"]').click()
       await geserSampaiPas(page, BASE, tekaTeki)
       errorShown = await pesanGagalTampil()
@@ -207,8 +215,8 @@ async function main() {
       page.url().includes('/login'), page.url().replace(BASE, ''))
 
     // A2. Enter di kolom sandi harus mengirim formulir (bukan wajib klik tombol)
-    await page.locator('input[type="password"]').fill('password123')
-    await page.locator('input[type="password"]').press('Enter')
+    await page.locator('input[autocomplete="current-password"]').fill('password123')
+    await page.locator('input[autocomplete="current-password"]').press('Enter')
     await geserSampaiPas(page, BASE, tekaTeki)
     let loggedIn = await page.waitForURL(/\/admin\//, { timeout: 30_000 }).then(() => true).catch(() => false)
 
@@ -222,8 +230,8 @@ async function main() {
     if (rateLimited) {
       console.log('  catatan: login dibatasi rate limit (429); menunggu 60 detik lalu mencoba sekali lagi')
       await page.waitForTimeout(60_000)
-      await page.locator('input[type="password"]').fill('password123')
-      await page.locator('input[type="password"]').press('Enter')
+      await page.locator('input[autocomplete="current-password"]').fill('password123')
+      await page.locator('input[autocomplete="current-password"]').press('Enter')
       await geserSampaiPas(page, BASE, tekaTeki)
       loggedIn = await page.waitForURL(/\/admin\//, { timeout: 30_000 }).then(() => true).catch(() => false)
     }
@@ -910,7 +918,15 @@ async function main() {
     await page.waitForTimeout(800)
     await page.route('**/api/admin/queues**', async (route) => {
       await new Promise(r => setTimeout(r, 2500))
-      await route.continue()
+      /**
+       * Route bisa sudah hilang saat penundaan ini selesai: pemeriksaan di bawah
+       * memanggil `unroute` begitu indikatornya terlihat, dan sejak indikatornya
+       * muncul pada awal navigasi (bukan setelah komponen halaman terpasang) itu
+       * kerap terjadi sebelum 2.500 ms habis. Tugas handler ini hanya menunda,
+       * jadi route yang sudah ditangani bukan kegagalan — tanpa penjagaan ini
+       * seluruh audit berhenti dengan "Route is already handled!".
+       */
+      await route.continue().catch(() => {})
     })
     await page.getByRole('link', { name: /Antrean Live/ }).first().click({ timeout: 15_000 }).catch(async () => {
       // Menu bisa tergulung; pakai navigasi klien sebagai gantinya.
@@ -918,7 +934,7 @@ async function main() {
       await page.goto(`${BASE}/admin/live-queue`, { waitUntil: 'commit' })
     })
     const loadingSeen = await waitFor(async () =>
-      (await page.locator('.animate-pulse, [class*="skeleton"], [role="progressbar"], .nuxt-loading-indicator').count()) > 0,
+      (await page.locator('.antrean-skeleton, .animate-pulse, [class*="skeleton"], [role="progressbar"], .antrean-loading-bar, .antrean-loading-ring, .nuxt-loading-indicator').count()) > 0,
     8_000, 100)
     check('UX', 'ada indikator memuat saat data belum siap', loadingSeen,
       loadingSeen ? 'skeleton / bilah progres terlihat' : 'tidak ada indikator; halaman tampak kosong dulu')

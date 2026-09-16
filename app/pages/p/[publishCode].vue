@@ -120,7 +120,7 @@ const view = computed<PublicPageView | null>(() => {
       ...data.value.page,
       theme: {
         ...theme,
-        primaryColor: theme.primaryColor || warisan.primaryColor || '#1b5cf5',
+        primaryColor: theme.primaryColor || warisan.primaryColor || '#132b48',
         secondaryColor: theme.secondaryColor || warisan.secondaryColor || '#0f172a',
         fontFamily: theme.fontFamily || warisan.fontFamily || '',
         footerText: theme.footerText || warisan.footerText || '',
@@ -373,6 +373,7 @@ async function submit() {
         ref="dialogRef"
         v-model:open="dialogOpen"
         v-model:captcha-token="captchaToken"
+        :theme="view.page.theme"
         :service="selectedType"
         :ticket="selectedTicket"
         :fields="data.form?.fields ?? []"

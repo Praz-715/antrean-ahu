@@ -187,7 +187,7 @@ function landingOptions() {
   }
 
   return [
-    { label: 'Halaman sambutan ANTREAN', value: LANDING_NONE },
+    { label: 'Halaman sambutan Sistem Antrean AHU', value: LANDING_NONE },
     ...(terbit.length
       ? [{ label: `Daftar semua halaman publik (${terbit.length})`, value: LANDING_DIRECTORY }]
       : []),
@@ -273,10 +273,7 @@ function isVisible(def: SettingDefinition) {
               <p class="font-medium">
                 Nama organisasi
               </p>
-              <p class="mt-0.5 text-sm text-slate-500">
-                Berlaku seketika di seluruh halaman. Tautan publik tetap memakai slug
-                <code class="rounded bg-slate-100 px-1 py-0.5 text-xs dark:bg-slate-800">{{ organization.slug }}</code>, jadi QR yang sudah dicetak tidak berubah.
-              </p>
+              
             </div>
             <div class="w-full sm:w-56">
               <UInput
@@ -424,9 +421,7 @@ function isVisible(def: SettingDefinition) {
         </div>
       </section>
 
-      <p class="px-1 text-xs text-slate-400">
-        Perubahan berlaku untuk permintaan berikutnya — tidak perlu menyalakan ulang server.
-      </p>
+      
     </div>
 
     <!-- Bilah simpan mengambang: perubahan tidak boleh hilang hanya karena halaman digulir -->

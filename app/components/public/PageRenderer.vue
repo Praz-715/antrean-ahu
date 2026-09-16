@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { PublicPageView, PublicTicketView } from '#shared/types/public-page'
-import { accentOf } from '#shared/schemas/public-page'
-import { onColor } from '#shared/utils/color'
 
 /**
  * Perender halaman publik — dipakai halaman pengunjung DAN pratinjau builder.
@@ -27,19 +25,7 @@ const emit = defineEmits<{ select: [id: string] }>()
 // Warna utama sering pekat; sebagai teks di tema gelap ia perlu diterangkan dulu.
 const { readable } = useReadableColor()
 
-const cssVars = computed(() => {
-  const t = props.view.page.theme
-  return {
-    '--public-primary': t.primaryColor,
-    '--public-secondary': t.secondaryColor,
-    '--public-accent': accentOf(t),
-    /** Warna teks yang kontras di atas warna utama (hero, tombol). */
-    '--public-on-primary': onColor(t.primaryColor),
-    /** Warna utama versi aman-dibaca, untuk teks dan ikon di atas latar halaman. */
-    '--public-link': readable(t.primaryColor) ?? t.primaryColor,
-    ...(t.fontFamily ? { 'fontFamily': t.fontFamily } : {}),
-  } as Record<string, string>
-})
+const cssVars = usePublicThemeVars(() => props.view.page.theme)
 
 const hero = computed(() => props.view.page.theme.hero)
 
@@ -87,8 +73,9 @@ function keLayanan() {
           v-if="view.page.logoUrl || view.organization?.logoUrl"
           :src="view.page.logoUrl ?? view.organization?.logoUrl ?? ''"
           alt=""
-          class="h-10 w-auto object-contain"
+          class="h-10 w-auto shrink-0 object-contain"
         >
+        <UiBrandLogo v-else size="lg" />
         <div class="min-w-0">
           <h1 class="truncate text-xl font-extrabold">
             {{ view.page.title }}

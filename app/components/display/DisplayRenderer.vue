@@ -112,8 +112,8 @@ function entryFor(widget: RenderWidget): BoardEntry | null {
 
 /** Loket contoh untuk pratinjau builder, supaya tata letaknya bisa dinilai. */
 const PREVIEW_COUNTERS: CounterEntry[] = [
-  { id: 'p1', code: 'L1', name: 'Loket 1', services: [], current: { queueNumber: 'A023', status: 'SERVING', priority: 0, queueType: { id: 'a', code: 'A', name: 'Pelayanan Umum', color: '#1b5cf5' } } },
-  { id: 'p2', code: 'L2', name: 'Loket 2', services: [], current: { queueNumber: 'A024', status: 'CALLED', priority: 1, queueType: { id: 'a', code: 'A', name: 'Pelayanan Umum', color: '#1b5cf5' } } },
+  { id: 'p1', code: 'L1', name: 'Loket 1', services: [], current: { queueNumber: 'A023', status: 'SERVING', priority: 0, queueType: { id: 'a', code: 'A', name: 'Pelayanan Umum', color: '#132b48' } } },
+  { id: 'p2', code: 'L2', name: 'Loket 2', services: [], current: { queueNumber: 'A024', status: 'CALLED', priority: 1, queueType: { id: 'a', code: 'A', name: 'Pelayanan Umum', color: '#132b48' } } },
   { id: 'p3', code: 'L3', name: 'Loket 3', services: [], current: { queueNumber: 'B008', status: 'SERVING', priority: 0, queueType: { id: 'b', code: 'B', name: 'Pelayanan Khusus', color: '#7c3aed' } } },
   { id: 'p4', code: 'L4', name: 'Loket 4', services: [], current: null },
 ]
@@ -420,7 +420,7 @@ const dateText = computed(() => now.value.toLocaleDateString('id-ID', { weekday:
           {{ dateText }}
         </p>
         <p v-else-if="widget.type === 'ORG_NAME'" class="w-full truncate">
-          {{ organizationName ?? (preview ? 'Demo Organization' : '') }}
+          {{ organizationName ?? (preview ? 'Nama Instansi' : '') }}
         </p>
 
         <!-- Teks -->

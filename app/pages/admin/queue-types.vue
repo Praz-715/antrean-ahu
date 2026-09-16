@@ -60,7 +60,7 @@ const blank = () => ({
   startingNumber: 1,
   numberFormat: '{prefix}{seq}',
   padding: 3,
-  color: '#1b5cf5',
+  color: '#132b48',
   icon: '',
   isActive: true,
   displayOrder: items.value.length + 1,
@@ -155,7 +155,7 @@ async function toggleActive(item: QueueType) {
   await load()
 }
 
-const PRESET_COLORS = ['#1b5cf5', '#7c3aed', '#0d9488', '#ea580c', '#dc2626', '#4f46e5', '#059669', '#0891b2']
+const PRESET_COLORS = ['#132b48', '#254776', '#3f72ad', '#0d9488', '#ea580c', '#dc2626', '#7c3aed', '#0891b2']
 </script>
 
 <template>

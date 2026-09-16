@@ -94,7 +94,7 @@ async function load() {
       allowFinishAfterClose: detail.value.allowFinishAfterClose,
     })
     Object.assign(branding, {
-      primaryColor: detail.value.branding?.primaryColor ?? '#1b5cf5',
+      primaryColor: detail.value.branding?.primaryColor ?? '#132b48',
       secondaryColor: detail.value.branding?.secondaryColor ?? '#0f172a',
       logoUrl: detail.value.branding?.logoUrl ?? '',
       backgroundUrl: detail.value.branding?.backgroundUrl ?? '',
@@ -132,7 +132,7 @@ const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 const form = reactive({ name: '', description: '', timezone: 'Asia/Jakarta', allowFinishAfterClose: true })
 
 const branding = reactive({
-  primaryColor: '#1b5cf5',
+  primaryColor: '#132b48',
   secondaryColor: '#0f172a',
   logoUrl: '',
   backgroundUrl: '',

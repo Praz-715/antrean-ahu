@@ -16,7 +16,7 @@ export const createQueueTypeSchema = z.object({
   startingNumber: z.number().int().min(1).max(999999).default(1),
   numberFormat: z.string().trim().min(1).max(50).default('{prefix}{seq}'),
   padding: z.number().int().min(1).max(8).default(3),
-  color: hexColorSchema.default('#1b5cf5'),
+  color: hexColorSchema.default('#132b48'),
   icon: z.string().trim().max(60).optional().nullable(),
   isActive: z.boolean().default(true),
   displayOrder: z.number().int().min(0).max(999).default(0),

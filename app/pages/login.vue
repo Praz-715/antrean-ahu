@@ -9,6 +9,18 @@ const toast = useToast()
 const { load, homeRoute } = useMe()
 
 const form = reactive({ email: '', password: '' })
+
+/**
+ * Tampilkan kata sandi apa adanya.
+ *
+ * Kata sandi operator loket biasanya diketik di depan pengunjung dan sering panjang;
+ * salah ketik satu huruf hanya terlihat sebagai "kredensial salah" setelah dikirim,
+ * lalu dicoba lagi — dan percobaan yang menumpuk membentur pembatas laju masuk.
+ *
+ * Selalu kembali tersembunyi saat halaman dibuka: keadaan "terlihat" tidak pernah
+ * diingat antar kunjungan, karena layar masuk kerap dibiarkan terbuka di meja loket.
+ */
+const passwordTerlihat = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -85,40 +97,37 @@ async function onSubmit() {
 <template>
   <div class="flex min-h-screen">
     <!-- Panel brand -->
-    <div class="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-700 p-12 text-white lg:flex">
+    <div class="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-900 p-12 text-white lg:flex">
+      <!--
+        Dua lapis latar. Gradien navy memberi kedalaman tanpa mengubah warnanya,
+        lalu semburat emas tipis dari sudut atas mengikat panel ini ke lambang di
+        atasnya. Emas dijaga sangat redup — di atas navy ia mudah berubah dari
+        aksen menjadi silau.
+      -->
       <div
-        class="pointer-events-none absolute inset-0 opacity-20"
-        style="background-image: radial-gradient(circle at 20% 20%, white 0, transparent 45%), radial-gradient(circle at 80% 70%, white 0, transparent 40%)"
+        class="pointer-events-none absolute inset-0"
+        style="background-image: linear-gradient(160deg, #1e3a5f 0%, #132b48 45%, #0a1b30 100%)"
+      />
+      <div
+        class="pointer-events-none absolute inset-0 opacity-[0.10]"
+        style="background-image: radial-gradient(circle at 18% 12%, #fed206 0, transparent 42%), radial-gradient(circle at 85% 78%, white 0, transparent 40%)"
       />
       <div class="relative">
-        <div class="flex items-center gap-2 text-xl font-extrabold tracking-tight">
-          <UIcon name="i-lucide-layout-list" class="size-7" />
-          ANTREAN
-        </div>
+        <UiBrandLogo size="lg" wordmark caption="Ditjen Administrasi Hukum Umum" :plate="false" on-dark />
       </div>
 
       <div class="relative space-y-6">
         <p class="max-w-md text-3xl font-bold leading-tight">
-          Kelola Antrean.<br>Layani Lebih Cepat.
+          Selamat Datang<br>Di Sistem Antrean AHU
         </p>
         <p class="max-w-md text-white/70">
-          Satu sistem antrean untuk rumah sakit, instansi, bank, kampus, atau event apa pun —
-          jenis layanan, formulir, dan tampilan display semuanya bisa Anda atur sendiri.
+          Satu sistem antrean untuk seluruh layanan Direktorat Jenderal Administrasi
+          Hukum Umum.
         </p>
-        <div class="flex gap-8 pt-2">
-          <div>
-            <div class="queue-number text-3xl">A023</div>
-            <div class="text-xs uppercase tracking-widest text-white/60">Sedang dilayani</div>
-          </div>
-          <div>
-            <div class="queue-number text-3xl">12m</div>
-            <div class="text-xs uppercase tracking-widest text-white/60">Rata-rata tunggu</div>
-          </div>
-        </div>
       </div>
 
       <p class="relative text-sm text-white/50">
-        © {{ new Date().getFullYear() }} ANTREAN
+        © {{ new Date().getFullYear() }} Sistem Antrean AHU
       </p>
     </div>
 
@@ -126,18 +135,12 @@ async function onSubmit() {
     <div class="flex w-full items-center justify-center p-6 lg:w-1/2">
       <div class="w-full max-w-sm">
         <div class="mb-8 lg:hidden">
-          <div class="flex items-center gap-2 text-xl font-extrabold">
-            <UIcon name="i-lucide-layout-list" class="size-6 text-brand-600" />
-            ANTREAN
-          </div>
+          <UiBrandLogo size="md" wordmark caption="Ditjen AHU" />
         </div>
 
         <h1 class="text-2xl font-bold tracking-tight">
-          Masuk ke akun Anda
+          Login ke Sistem Antrean AHU
         </h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Gunakan akun administrator atau operator yang telah didaftarkan.
-        </p>
 
         <UAlert
           v-if="errorMessage"
@@ -165,14 +168,37 @@ async function onSubmit() {
           <UFormField label="Kata Sandi" name="password" required>
             <UInput
               v-model="form.password"
-              type="password"
+              :type="passwordTerlihat ? 'text' : 'password'"
               autocomplete="current-password"
               placeholder="••••••••"
               icon="i-lucide-lock"
               size="lg"
               class="w-full"
               required
-            />
+            >
+              <template #trailing>
+                <!--
+                  `type="button"` wajib: tombol di dalam form tanpa tipe eksplisit
+                  dianggap tombol kirim, jadi menekan mata justru mencoba masuk.
+
+                  Namanya ikut berubah, bukan tetap "Tampilkan kata sandi": pembaca
+                  layar mengumumkan nama tombol, dan nama yang tidak berubah membuat
+                  penggunanya tidak tahu keadaan mana yang sedang berlaku. `aria-pressed`
+                  melengkapinya untuk pembaca layar yang mengumumkan status tekan.
+                -->
+                <UButton
+                  type="button"
+                  variant="link"
+                  color="neutral"
+                  size="sm"
+                  :icon="passwordTerlihat ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="passwordTerlihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
+                  :title="passwordTerlihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
+                  :aria-pressed="passwordTerlihat"
+                  @click="passwordTerlihat = !passwordTerlihat"
+                />
+              </template>
+            </UInput>
           </UFormField>
 
           <UButton
@@ -187,15 +213,7 @@ async function onSubmit() {
 
         <UiSliderCaptcha ref="captcha" purpose="login" />
 
-        <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-4 text-xs text-slate-500 dark:border-slate-700">
-          <p class="mb-2 font-semibold text-slate-600 dark:text-slate-400">
-            Akun demo (development)
-          </p>
-          <ul class="space-y-1 font-mono">
-            <li>superadmin@antrean.local · password123</li>
-            <li>operator1@antrean.local · password123</li>
-          </ul>
-        </div>
+       
       </div>
     </div>
   </div>

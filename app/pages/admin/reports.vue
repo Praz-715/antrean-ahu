@@ -27,7 +27,9 @@ interface ExportJob {
   rowCount: number | null
   error: string | null
   createdAt: string
-  filters: { from?: string, to?: string } | null
+  filters: { from?: string, to?: string, queueTypeIds?: string[] } | null
+  /** Nama jenis antrean penyaringnya, sudah diterjemahkan server (lihat export.service). */
+  queueTypeLabels: string[]
   requestedBy: { id: string, name: string } | null
   downloadUrl: string | null
 }
@@ -61,11 +63,35 @@ watch([currentId, reportDate], loadReport, { immediate: true })
 
 // ---- pusat ekspor ----
 const jobs = ref<ExportJob[]>([])
+
+/**
+ * Jenis antrean milik event aktif, untuk penyaring ekspor.
+ *
+ * Kegagalannya jatuh ke daftar kosong, bukan pesan galat: penyaringnya opsional,
+ * dan pengguna yang tidak punya izin melihat jenis antrean tetap harus bisa
+ * membuat ekspor tanpa penyaring.
+ */
+const queueTypes = ref<Array<{ id: string, code: string, name: string }>>([])
+
+async function loadQueueTypes() {
+  if (!currentId.value) { queueTypes.value = []; return }
+  queueTypes.value = await apiFetch<Array<{ id: string, code: string, name: string }>>(
+    '/api/admin/queue-types',
+    { query: { eventId: currentId.value } },
+  ).catch(() => [])
+}
+
+const queueTypeOptions = computed(() =>
+  queueTypes.value.map(t => ({ label: `${t.code} · ${t.name}`, value: t.id })),
+)
+
 const exportForm = reactive({
   type: 'QUEUES' as 'QUEUES' | 'VISITORS' | 'OPERATORS' | 'TESTIMONIALS',
   format: 'XLSX' as 'CSV' | 'XLSX',
   from: addDays(today.value, -29),
   to: today.value,
+  /** Kosong berarti seluruh jenis antrean — tidak perlu pilihan "Semua" tersendiri. */
+  queueTypeIds: [] as string[],
 })
 
 // event lain bisa berbeda zona waktu; sesuaikan tanggal bawaannya
@@ -74,6 +100,18 @@ watch(() => current.value?.timezone, () => {
   exportForm.from = addDays(today.value, -29)
   exportForm.to = today.value
 })
+
+/**
+ * Jenis antrean milik event, jadi berganti event membuat pilihan sebelumnya
+ * menunjuk ke id yang tidak ada di event baru. Dikosongkan, bukan dipetakan
+ * berdasarkan nama: dua event boleh punya layanan bernama sama yang sebenarnya
+ * berbeda, dan ekspor yang diam-diam menyaring layanan yang salah lebih buruk
+ * daripada penyaring yang jelas-jelas direset.
+ */
+watch(currentId, () => {
+  exportForm.queueTypeIds = []
+  void loadQueueTypes()
+}, { immediate: true })
 
 async function loadJobs() {
   jobs.value = await apiFetch<ExportJob[]>('/api/admin/exports')
@@ -102,9 +140,14 @@ onMounted(() => {
 onBeforeUnmount(() => clearInterval(pollTimer))
 
 async function requestExport() {
+  const { queueTypeIds, ...sisa } = exportForm
   const res = await call(
     '/api/admin/exports',
-    { method: 'POST', body: { ...exportForm, eventId: currentId.value } },
+    {
+      method: 'POST',
+      // Larik kosong tidak dikirim: server membacanya sebagai "seluruh jenis".
+      body: { ...sisa, eventId: currentId.value, ...(queueTypeIds.length ? { queueTypeIds } : {}) },
+    },
     'Ekspor sedang diproses',
   )
   if (res) await loadJobs()
@@ -429,6 +472,25 @@ function printReport() {
           <UFormField label="Sampai" size="xs">
             <UInput v-model="exportForm.to" type="date" size="sm" class="w-40" aria-label="Ekspor sampai tanggal" />
           </UFormField>
+          <!--
+            Tanpa pilihan "Semua layanan" tersendiri: kosong SUDAH berarti semua,
+            dan menyediakan keduanya membuat dua cara menyatakan hal yang sama —
+            yang satu bisa ikut tercentang bersama layanan lain lalu artinya
+            menjadi ambigu.
+          -->
+          <UFormField label="Jenis antrean" size="xs">
+            <USelectMenu
+              v-model="exportForm.queueTypeIds"
+              :items="queueTypeOptions"
+              value-key="value"
+              multiple
+              size="sm"
+              class="w-64"
+              placeholder="Semua jenis antrean"
+              :search-input="{ placeholder: 'Cari layanan…' }"
+              aria-label="Saring ekspor menurut jenis antrean"
+            />
+          </UFormField>
           <UiActionButton
             icon="i-lucide-download"
             label="Buat Ekspor"
@@ -470,6 +532,18 @@ function printReport() {
             <tr v-for="job in jobs" :key="job.id">
               <td class="py-2">
                 {{ TYPE_LABEL[job.type] ?? job.type }}
+                <!--
+                  Tanpa baris ini dua ekspor dengan jenis data dan rentang yang sama
+                  tampak identik di riwayat, padahal isinya berbeda karena
+                  penyaringnya berbeda.
+                -->
+                <span
+                  v-if="job.queueTypeLabels?.length"
+                  class="block text-xs text-slate-500"
+                  :title="job.queueTypeLabels.join(', ')"
+                >
+                  {{ job.queueTypeLabels.length }} jenis antrean
+                </span>
               </td>
               <td class="py-2 text-slate-500">
                 {{ job.filters?.from }} – {{ job.filters?.to }}

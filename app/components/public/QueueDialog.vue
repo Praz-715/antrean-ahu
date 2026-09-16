@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicFormFieldDef, PublicServiceView, PublicTicketView } from '#shared/types/public-page'
+import type { PublicPageTheme } from '#shared/schemas/public-page'
 import { withAlpha } from '#shared/utils/color'
 
 /**
@@ -36,7 +37,18 @@ const props = defineProps<{
   autofillMessage: string
   autofillStatus: 'idle' | 'ok' | 'error'
   autofilledKeys: string[]
+  /**
+   * Tema halaman, untuk warna tombol dan aksen di dalam dialog.
+   *
+   * Harus dikirim sebagai prop: dialog ini `UModal` yang di-teleport ke `body`
+   * dan dipasang sebagai saudara — bukan anak — dari perender halaman, jadi
+   * variabel CSS tema yang dideklarasikan di akar perender tidak pernah
+   * mewaris sampai ke sini.
+   */
+  theme: PublicPageTheme
 }>()
+
+const themeVars = usePublicThemeVars(() => props.theme)
 
 const emit = defineEmits<{
   submit: []
@@ -115,7 +127,14 @@ defineExpose({
     :ui="{ content: 'sm:max-w-lg' }"
   >
     <template #body>
-      <div v-if="service" class="space-y-5">
+      <!--
+        Variabel tema dipasang di sini, bukan diwarisi dari halaman.
+
+        Isi modal di-teleport ke `body`, di luar elemen yang mendeklarasikan
+        `--public-*`. Tanpa baris ini `var(--public-primary)` tidak resolve dan
+        tombol "Ambil Nomor Antrean" tampil tanpa warna sama sekali.
+      -->
+      <div v-if="service" class="space-y-5" :style="themeVars">
         <!-- Ringkasan layanan: kode, jumlah menunggu, estimasi -->
         <div
           class="flex items-center gap-4 rounded-2xl p-4"

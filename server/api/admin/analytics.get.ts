@@ -16,6 +16,15 @@ const querySchema = z.object({
 
 export default defineApiHandler(async (event) => {
   const ctx = await requirePermission(event, PERMISSIONS.ANALYTICS_VIEW, PERMISSIONS.REPORT_VIEW)
-  const filter = querySchema.parse(getQuery(event))
-  return ok(await analyticsService.overview(requireOrganization(ctx), filter))
+  const { queueTypeId, ...filter } = querySchema.parse(getQuery(event))
+
+  /*
+   * Halaman Analitik menyaring satu jenis antrean, Pusat Ekspor beberapa. Bentuk
+   * kuerinya dibiarkan tunggal supaya tautan yang sudah beredar tetap berlaku;
+   * yang jamak hanya dipakai di dalam service.
+   */
+  return ok(await analyticsService.overview(requireOrganization(ctx), {
+    ...filter,
+    ...(queueTypeId ? { queueTypeIds: [queueTypeId] } : {}),
+  }))
 })

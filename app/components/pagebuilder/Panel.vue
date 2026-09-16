@@ -559,13 +559,13 @@ function hapusTitik() {
         </UFormField>
       </div>
 
-      <!-- 6. ANTREAN -->
+      <!-- 6. Sistem Antrean AHU -->
       <div v-else-if="aktif === 'antrean'" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <UFormField label="Batas per IP per hari" help="0 = tanpa batas.">
           <UInputNumber v-model="draft.maxPerIpPerDay" :min="0" :max="1000" class="w-full" />
         </UFormField>
 
-        <div>
+        <!-- <div>
           <UCheckbox
             v-model="draft.requireCaptcha"
             :disabled="!captchaConfigured"
@@ -574,7 +574,7 @@ function hapusTitik() {
           <p v-if="!captchaConfigured" class="mt-1 text-xs text-slate-400">
             Isi TURNSTILE_SITE_KEY dan TURNSTILE_SECRET_KEY pada .env untuk mengaktifkan.
           </p>
-        </div>
+        </div> -->
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-300">
           <p class="font-medium">
@@ -582,8 +582,7 @@ function hapusTitik() {
           </p>
           <p class="mt-1">
             Isian yang harus diisi pengunjung dan verifikasi geser diatur pada
-            <NuxtLink to="/admin/forms" class="underline">Form Builder</NuxtLink> —
-            keduanya mengikuti formulir aktif event ini.
+            <NuxtLink to="/admin/forms" class="underline">Form Builder</NuxtLink>.
           </p>
         </div>
       </div>
@@ -718,7 +717,7 @@ function hapusTitik() {
         <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
           <USwitch v-model="draft.theme.footer.showLogo" label="Logo" />
           <USwitch v-model="draft.theme.footer.showOrganization" label="Nama instansi" />
-          <USwitch v-model="draft.theme.footer.showPoweredBy" label='"Ditenagai ANTREAN"' />
+          <USwitch v-model="draft.theme.footer.showPoweredBy" label='"Ditenagai Sistem Antrean AHU"' />
         </div>
       </div>
 

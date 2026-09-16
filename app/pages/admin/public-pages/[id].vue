@@ -236,7 +236,7 @@ const previewView = computed<PublicPageView>(() => {
       theme: {
         ...theme,
         // Nilai yang dikosongkan di halaman diturunkan dari branding event (§48).
-        primaryColor: theme.primaryColor || warisan.primaryColor || '#1b5cf5',
+        primaryColor: theme.primaryColor || warisan.primaryColor || '#132b48',
         secondaryColor: theme.secondaryColor || warisan.secondaryColor || '#0f172a',
         fontFamily: theme.fontFamily || warisan.fontFamily || '',
         footerText: theme.footerText || warisan.footerText || '',

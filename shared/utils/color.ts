@@ -53,7 +53,7 @@ export function onColor(hex: string): string {
   return putih >= gelap ? '#ffffff' : '#0f172a'
 }
 
-/** `#1b5cf5` + 0.12 → `rgb(27 92 245 / 0.12)`, aman dipakai di CSS mana pun. */
+/** `#132b48` + 0.12 → `rgb(19 43 72 / 0.12)`, aman dipakai di CSS mana pun. */
 export function withAlpha(hex: string, alpha: number): string {
   const rgb = hexToRgb(hex)
   if (!rgb) return hex
@@ -64,9 +64,52 @@ function rgbToHex(rgb: [number, number, number]) {
   return '#' + rgb.map(v => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('')
 }
 
+function rgbToHsl([r, g, b]: [number, number, number]): [number, number, number] {
+  const rn = r / 255, gn = g / 255, bn = b / 255
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn)
+  const l = (max + min) / 2
+  if (max === min) return [0, 0, l]
+
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === rn
+    ? ((gn - bn) / d + (gn < bn ? 6 : 0))
+    : max === gn
+      ? (bn - rn) / d + 2
+      : (rn - gn) / d + 4
+  return [h / 6, s, l]
+}
+
+function hslToRgb([h, s, l]: [number, number, number]): [number, number, number] {
+  if (s === 0) return [l * 255, l * 255, l * 255]
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const channel = (t: number) => {
+    let v = t
+    if (v < 0) v += 1
+    if (v > 1) v -= 1
+    if (v < 1 / 6) return p + (q - p) * 6 * v
+    if (v < 1 / 2) return q
+    if (v < 2 / 3) return p + (q - p) * (2 / 3 - v) * 6
+    return p
+  }
+  return [channel(h + 1 / 3) * 255, channel(h) * 255, channel(h - 1 / 3) * 255]
+}
+
 /**
  * Terangkan warna sampai kontrasnya terhadap latar gelap mencapai `minRatio`.
  * Bila warnanya sudah cukup terang — atau bukan warna yang bisa dibaca — kembalikan apa adanya.
+ *
+ * Yang dinaikkan hanya LIGHTNESS di ruang HSL; hue dan saturasinya dibiarkan.
+ * Sebelumnya warnanya dicampur putih, dan itu menurunkan saturasi bersamaan dengan
+ * menaikkan terang: warna pekat seperti navy #132b48 keluar sebagai kelabu kebiruan
+ * yang tak lagi mengingatkan pada warna aslinya — paling terasa pada nomor antrean
+ * setinggi 14rem di papan antrean, yang justru elemen paling menonjol di ruang tunggu.
+ * Menaikkan lightness saja membuat navy itu menjadi biru muda yang masih jelas navy.
+ *
+ * Saturasi warna yang sangat pekat dinaikkan sedikit (maksimal 0,55) supaya tidak
+ * ikut pudar saat lightness-nya mendekati puncak.
  */
 export function readableColor(hex: string, dark: boolean, minRatio = 4.5): string {
   if (!dark) return hex
@@ -76,14 +119,12 @@ export function readableColor(hex: string, dark: boolean, minRatio = 4.5): strin
 
   if (contrastRatio(relativeLuminance(rgb), DARK_SURFACE_LUMINANCE) >= minRatio) return hex
 
-  // Campur bertahap dengan putih; 12 langkah sudah cukup halus untuk mata.
-  for (let step = 1; step <= 12; step++) {
-    const mix = step / 12
-    const lifted: [number, number, number] = [
-      rgb[0] + (255 - rgb[0]) * mix,
-      rgb[1] + (255 - rgb[1]) * mix,
-      rgb[2] + (255 - rgb[2]) * mix,
-    ]
+  const [h, s, l] = rgbToHsl(rgb)
+  const saturasi = Math.max(s, Math.min(0.55, s * 1.25))
+
+  // 24 langkah lightness: cukup halus supaya tidak melompati ambang kontras.
+  for (let step = 1; step <= 24; step++) {
+    const lifted = hslToRgb([h, saturasi, Math.min(1, l + (1 - l) * (step / 24))])
     if (contrastRatio(relativeLuminance(lifted), DARK_SURFACE_LUMINANCE) >= minRatio) {
       return rgbToHex(lifted)
     }

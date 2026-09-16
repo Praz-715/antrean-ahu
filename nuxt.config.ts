@@ -42,12 +42,23 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      titleTemplate: '%s · ANTREAN',
-      title: 'ANTREAN',
+      titleTemplate: '%s · Sistem Antrean AHU',
+      title: 'Sistem Antrean AHU',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'description', content: 'ANTREAN — Kelola Antrean. Layani Lebih Cepat.' },
+        { name: 'description', content: 'Sistem Antrean AHU — Kelola Antrean. Layani Lebih Cepat.' },
+        // Warna bilah peramban di ponsel; navy yang sama dengan kepala halaman.
+        { name: 'theme-color', content: '#132b48' },
       ],
+      /**
+       * Lambang AHU TIDAK ada di sini.
+       *
+       * Ia diimpor komponen `UiBrandLogo` lewat Vite, yang menanamkannya langsung
+       * sebagai `data:` URI ke dalam bundel (berkasnya 2,8 KB, di bawah ambang
+       * 4 KB). Tidak ada permintaan jaringan yang perlu dipercepat dengan
+       * `preload`, dan tidak ada berkas di `public/` yang bisa ditunjuk
+       * `apple-touch-icon`.
+       */
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
   },
@@ -70,7 +81,7 @@ export default defineNuxtConfig({
     turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || '',
 
     public: {
-      appName: process.env.APP_NAME || 'ANTREAN',
+      appName: process.env.APP_NAME || 'Sistem Antrean AHU',
       appUrl: process.env.APP_URL || 'http://localhost:3000',
       defaultTimezone: process.env.DEFAULT_TIMEZONE || 'Asia/Jakarta',
       turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '',

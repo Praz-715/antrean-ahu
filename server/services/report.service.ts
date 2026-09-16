@@ -85,7 +85,7 @@ export const reportService = {
     eventId: string
     from: string
     to: string
-    queueTypeId?: string
+    queueTypeIds?: string[]
     status?: string
   }) {
     const event = await prisma.event.findFirst({
@@ -98,7 +98,7 @@ export const reportService = {
       eventId: filter.eventId,
       serviceDate: { gte: parseServiceDate(filter.from), lte: parseServiceDate(filter.to) },
       deletedAt: null,
-      ...(filter.queueTypeId ? { queueTypeId: filter.queueTypeId } : {}),
+      ...(filter.queueTypeIds?.length ? { queueTypeId: { in: filter.queueTypeIds } } : {}),
       ...(filter.status ? { status: filter.status as never } : {}),
     }
 
@@ -150,7 +150,7 @@ export const reportService = {
     }
   },
 
-  async *streamVisitorRows(organizationId: string, filter: { eventId: string, from: string, to: string }) {
+  async *streamVisitorRows(organizationId: string, filter: { eventId: string, from: string, to: string, queueTypeIds?: string[] }) {
     const event = await prisma.event.findFirst({
       where: { id: filter.eventId, organizationId, deletedAt: null },
       select: { id: true },
@@ -164,10 +164,17 @@ export const reportService = {
       const rows = await prisma.visitor.findMany({
         where: {
           eventId: filter.eventId,
+          /*
+           * Penyaring jenis antrean masuk ke dalam `some` yang sama, bukan sebagai
+           * syarat terpisah: yang dicari pengunjung yang punya antrean pada jenis
+           * TERPILIH DI RENTANG ITU. Dipisah menjadi dua `some`, pengunjung yang
+           * mengambil layanan A bulan lalu dan layanan B hari ini ikut terbawa.
+           */
           queues: {
             some: {
               serviceDate: { gte: parseServiceDate(filter.from), lte: parseServiceDate(filter.to) },
               deletedAt: null,
+              ...(filter.queueTypeIds?.length ? { queueTypeId: { in: filter.queueTypeIds } } : {}),
             },
           },
         },
@@ -198,7 +205,7 @@ export const reportService = {
   },
 
   /** Testimoni satu event pada rentang tanggal layanan (§23, §38). */
-  async *streamTestimonialRows(organizationId: string, filter: { eventId: string, from: string, to: string }) {
+  async *streamTestimonialRows(organizationId: string, filter: { eventId: string, from: string, to: string, queueTypeIds?: string[] }) {
     const event = await prisma.event.findFirst({
       where: { id: filter.eventId, organizationId, deletedAt: null },
       select: { id: true },
@@ -215,6 +222,7 @@ export const reportService = {
           queue: {
             serviceDate: { gte: parseServiceDate(filter.from), lte: parseServiceDate(filter.to) },
             deletedAt: null,
+            ...(filter.queueTypeIds?.length ? { queueTypeId: { in: filter.queueTypeIds } } : {}),
           },
         },
         take,
@@ -261,11 +269,17 @@ export const reportService = {
     }
   },
 
-  async *streamOperatorRows(organizationId: string, filter: { eventId: string, from: string, to: string }) {
+  async *streamOperatorRows(organizationId: string, filter: { eventId: string, from: string, to: string, queueTypeIds?: string[] }) {
+    /*
+     * Angka operator dihitung ulang oleh layanan analitik dengan penyaring yang
+     * sama, jadi "Dilayani" pada berkas hasil ekspor hanya menghitung antrean
+     * pada jenis yang dipilih — bukan seluruh antrean operator itu.
+     */
     const data = await analyticsService.overview(organizationId, {
       eventId: filter.eventId,
       from: filter.from,
       to: filter.to,
+      ...(filter.queueTypeIds?.length ? { queueTypeIds: filter.queueTypeIds } : {}),
     })
 
     for (const operator of data.operators) {

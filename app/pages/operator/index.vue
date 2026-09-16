@@ -275,7 +275,7 @@ function timeOf(value: string | null) {
     <!-- Topbar -->
     <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
-        <UIcon name="i-lucide-headset" class="size-6 text-brand-600" />
+        <UiBrandLogo size="sm" />
         <div class="min-w-0">
           <p class="truncate font-bold leading-tight">
             {{ board?.assignment.queueType.name ?? 'Operator' }}

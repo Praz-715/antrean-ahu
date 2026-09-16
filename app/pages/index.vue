@@ -48,7 +48,7 @@ if (data.value?.redirect) {
 }
 
 const daftar = computed(() => (data.value?.mode === 'directory' ? data.value.pages : []))
-const namaOrganisasi = computed(() => data.value?.organization?.name ?? 'ANTREAN')
+const namaOrganisasi = computed(() => data.value?.organization?.name ?? 'Direktorat Jenderal Administrasi Hukum Umum')
 
 useHead(() => ({
   title: daftar.value.length ? `Layanan ${namaOrganisasi.value}` : 'Beranda',
@@ -58,18 +58,28 @@ useHead(() => ({
 <template>
   <div v-if="daftar.length" class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <!-- Daftar halaman publik yang terbit -->
-    <header class="border-b border-slate-200 bg-white px-5 py-10 dark:border-slate-800 dark:bg-slate-900">
-      <div class="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center">
+    <!--
+      Kepala halaman berlatar navy di kedua tema: ini halaman pertama yang dilihat
+      pengunjung, jadi identitasnya dipasang tanpa bergantung pada tema pilihannya.
+    -->
+    <header class="bg-brand-900 px-5 py-10">
+      <div class="mx-auto flex max-w-5xl flex-col items-center gap-4 text-center">
+        <!--
+          Logo instansi dipakai bila sudah diunggah; kalau belum, lambang sistem
+          yang tampil — jangan biarkan kepala halaman publik tanpa identitas apa pun.
+        -->
         <img
           v-if="data?.organization?.logoUrl"
           :src="data.organization.logoUrl"
           alt=""
           class="h-12 w-auto object-contain"
         >
-        <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">
+        <UiBrandLogo v-else size="xl" :plate="false" />
+
+        <h1 class="text-balance text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
           {{ namaOrganisasi }}
         </h1>
-        <p class="text-slate-500">
+        <p class="text-brand-200">
           Pilih layanan untuk mengambil nomor antrean.
         </p>
       </div>
@@ -146,20 +156,25 @@ useHead(() => ({
     </main>
 
     <footer class="pb-10 text-center text-xs text-slate-400">
-      Ditenagai <span class="font-semibold">ANTREAN</span>
+      Ditenagai <span class="font-semibold">Sistem Antrean AHU</span>
     </footer>
   </div>
 
   <div v-else class="flex min-h-screen items-center justify-center p-6">
     <!-- Halaman sambutan bawaan -->
-    <div class="text-center">
-      <h1 class="text-4xl font-extrabold tracking-tight">
-        ANTREAN
+    <div class="flex flex-col items-center text-center">
+      <UiBrandLogo size="xl" />
+
+      <h1 class="mt-6 text-balance text-4xl font-extrabold uppercase tracking-tight">
+        Sistem Antrean <span class="text-brand-600 dark:text-gold-400">AHU</span>
       </h1>
-      <p class="mt-2 text-slate-500">
+      <p class="mt-1 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+        Ditjen Administrasi Hukum Umum
+      </p>
+      <p class="mt-4 max-w-sm text-pretty text-slate-500">
         Kelola Antrean. Layani Lebih Cepat.
       </p>
-      <UButton to="/login" class="mt-6" size="lg">
+      <UButton to="/login" class="mt-7" size="lg" icon="i-lucide-log-in">
         Masuk
       </UButton>
     </div>

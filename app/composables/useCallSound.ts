@@ -74,25 +74,34 @@ export function useCallSound() {
   }
 
   /**
-   * Dapatkan izin bunyi dari ketukan pengguna.
+   * Dapatkan izin bunyi untuk elemen audio ini.
    *
-   * Peramban menolak `play()` yang tidak berasal dari interaksi. Dipanggil dari
-   * tombol "Aktifkan Suara": berkasnya diputar tanpa volume lalu langsung dihentikan,
-   * cukup untuk membuat elemen ini dianggap sudah diizinkan berbunyi.
+   * Berkasnya diputar tanpa volume lalu langsung dihentikan — cukup untuk membuat
+   * elemen ini dianggap sudah diizinkan berbunyi, tanpa terdengar siapa pun.
+   *
+   * MENGEMBALIKAN apakah peramban benar-benar mengizinkannya. Nilai itu yang
+   * membedakan dua keadaan yang tampak sama dari luar: izin sudah didapat, atau
+   * `play()` ditolak karena belum ada interaksi pengguna. Tanpa pembedaan ini
+   * layar antrean bisa berdiri seharian tanpa suara sama sekali dan tak ada yang
+   * menyadarinya sampai pengunjung pertama melewatkan panggilannya.
    */
-  async function unlock(url?: string | null) {
+  async function unlock(url?: string | null): Promise<boolean> {
     const el = audio()
-    if (!el || !url) return
+    if (!el || !url) return false
     el.volume = 0
     el.src = url
     try {
       await el.play()
       el.pause()
       el.currentTime = 0
+      return true
     }
     catch {
-      // Diabaikan: kalau pun gagal, pemutaran berikutnya hanya akan kehilangan bunyi,
-      // bukan mengganggu tampilan layar.
+      /*
+       * Kegagalannya tidak dilempar: pemanggil hanya kehilangan bunyi, dan itu
+       * tidak boleh mengganggu tampilan layar. Yang dilaporkan cukup `false`.
+       */
+      return false
     }
     finally {
       el.volume = 1

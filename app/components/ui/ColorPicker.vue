@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   modelValue: string
   /** Nama kolom untuk pembaca layar — tombolnya hanya berisi warna, tanpa teks. */
   label?: string
-  /** Warna pilihan cepat; defaultnya palet layanan ANTREAN. */
+  /** Warna pilihan cepat; defaultnya palet navy Sistem Antrean AHU. */
   swatches?: string[]
   disabled?: boolean
   /** Sembunyikan kolom teks bila ruangnya memang sempit. */
@@ -33,7 +33,7 @@ const props = withDefaults(defineProps<{
   alpha?: boolean
 }>(), {
   label: 'Warna',
-  swatches: () => ['#1b5cf5', '#7c3aed', '#0d9488', '#ea580c', '#dc2626', '#4f46e5', '#059669', '#0891b2', '#0f172a', '#ffffff'],
+  swatches: () => ['#132b48', '#254776', '#3f72ad', '#fed206', '#0d9488', '#ea580c', '#dc2626', '#7c3aed', '#0f172a', '#ffffff'],
   disabled: false,
   hideInput: false,
   alpha: false,
@@ -131,7 +131,7 @@ onMounted(async () => {
   pickr = Pickr.create({
     el: anchor.value,
     theme: 'nano',
-    default: normalize(props.modelValue) ?? '#1b5cf5',
+    default: normalize(props.modelValue) ?? '#132b48',
     swatches: props.swatches,
     useAsButton: true,
     position: 'bottom-start',
@@ -251,7 +251,7 @@ watch(() => props.disabled, (mati) => {
       :model-value="teks"
       :disabled="disabled"
       :aria-label="`${label} (kode heksadesimal)`"
-      :placeholder="alpha ? '#1b5cf5cc' : '#1b5cf5'"
+      :placeholder="alpha ? '#132b48cc' : '#132b48'"
       class="w-full font-mono"
       size="sm"
       @update:model-value="onKetik"

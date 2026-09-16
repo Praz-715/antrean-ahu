@@ -7,7 +7,13 @@ export interface AnalyticsFilter {
   eventId: string
   from?: string
   to?: string
-  queueTypeId?: string
+  /**
+   * Kosong atau tak diisi berarti SELURUH jenis antrean — bukan "tidak ada".
+   * Bentuknya jamak karena Pusat Ekspor memilih beberapa layanan sekaligus;
+   * penyaring tunggal di halaman Analitik dibungkus menjadi larik satu isi di
+   * endpoint-nya, supaya service ini hanya mengenal satu bentuk.
+   */
+  queueTypeIds?: string[]
   operatorId?: string
 }
 
@@ -82,7 +88,7 @@ export const analyticsService = {
       q.event_id = ${filter.eventId}
       AND q.service_date BETWEEN ${from} AND ${to}
       AND q.deleted_at IS NULL
-      ${filter.queueTypeId ? Prisma.sql`AND q.queue_type_id = ${filter.queueTypeId}` : Prisma.empty}
+      ${filter.queueTypeIds?.length ? Prisma.sql`AND q.queue_type_id IN (${Prisma.join(filter.queueTypeIds)})` : Prisma.empty}
       ${filter.operatorId ? Prisma.sql`AND q.operator_id = ${filter.operatorId}` : Prisma.empty}
     `
 

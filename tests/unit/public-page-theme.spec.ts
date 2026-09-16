@@ -8,7 +8,8 @@ describe('tema halaman publik', () => {
   it('mengisi seluruh bagian dengan nilai bawaan', () => {
     const t = parsePublicPageTheme({})
 
-    expect(t.primaryColor).toBe('#1b5cf5')
+    // brand-900 — nilai bawaan tema navy AHU
+    expect(t.primaryColor).toBe('#132b48')
     expect(t.hero.enabled).toBe(true)
     expect(t.hero.align).toBe('center')
     expect(t.services.columns).toBe(3)
@@ -43,7 +44,7 @@ describe('tema halaman publik', () => {
       services: { columns: 4 },
     })
 
-    expect(t.primaryColor).toBe('#1b5cf5')
+    expect(t.primaryColor).toBe('#132b48')
     expect(t.secondaryColor).toBe('#123456')
     expect(t.services.columns).toBe(4)
   })

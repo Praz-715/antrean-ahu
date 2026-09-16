@@ -203,13 +203,13 @@ function printQr() {
         <div
           class="relative h-20 bg-cover bg-center"
           :style="{
-            backgroundColor: page.theme?.primaryColor ?? '#1b5cf5',
+            backgroundColor: page.theme?.primaryColor ?? '#132b48',
             ...(page.backgroundUrl ? { backgroundImage: `url(${page.backgroundUrl})` } : {}),
           }"
         >
           <div
             class="absolute inset-0"
-            :style="{ backgroundColor: page.theme?.primaryColor ?? '#1b5cf5', opacity: page.backgroundUrl ? 0.7 : 1 }"
+            :style="{ backgroundColor: page.theme?.primaryColor ?? '#132b48', opacity: page.backgroundUrl ? 0.7 : 1 }"
           />
           <img
             v-if="page.logoUrl"

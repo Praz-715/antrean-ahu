@@ -371,13 +371,19 @@ async function bukaLayar(context, deviceCode) {
   }
   if (!tersambung) throw new Error('Layar tidak pernah tersambung ke siaran panggilan (tetap OFFLINE)')
 
-  const tombol = page.getByRole('button', { name: /Aktifkan Suara/ })
-  if (await tombol.count()) {
-    await tombol.first().click()
-    await page.waitForTimeout(1200)
-  }
+  /**
+   * Satu ketukan untuk melepas kebijakan autoplay.
+   *
+   * Layar tidak lagi punya tombol "Aktifkan Suara": suaranya dibuka sendiri saat
+   * halaman terbuka, dan bila peramban menolaknya interaksi APA PUN di halaman ini
+   * mencobanya lagi. Peramban yang dipakai smoke test ini dijalankan tanpa flag
+   * autoplay, jadi penolakan itu memang yang terjadi — ketukan di area kosong
+   * inilah yang menggantikan tombolnya.
+   */
+  await page.mouse.click(5, 5)
+  await page.waitForTimeout(1200)
 
-  // Jejak dari tahap "aktifkan suara" dibuang: yang diuji adalah bunyi saat dipanggil.
+  // Jejak dari tahap membuka suara dibuang: yang diuji adalah bunyi saat dipanggil.
   jejak.length = 0
   return { page, jejak }
 }

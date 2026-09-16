@@ -105,8 +105,8 @@ const trendOption = computed<EChartsOption>(() => ({
       smooth: true,
       showSymbol: false,
       data: data.value?.daily.map(d => d.total) ?? [],
-      itemStyle: { color: '#1b5cf5' },
-      areaStyle: { color: 'rgba(27,92,245,0.15)' },
+      itemStyle: { color: '#3f72ad' },
+      areaStyle: { color: 'rgba(63,114,173,0.18)' },
     },
     {
       name: 'Selesai',
@@ -139,7 +139,7 @@ const hourlyOption = computed<EChartsOption>(() => ({
   series: [{
     type: 'bar',
     data: Array.from({ length: 24 }, (_, h) => data.value?.hourly.find(x => x.hour === h)?.count ?? 0),
-    itemStyle: { color: '#1b5cf5', borderRadius: [4, 4, 0, 0] },
+    itemStyle: { color: '#3f72ad', borderRadius: [4, 4, 0, 0] },
   }],
 }))
 

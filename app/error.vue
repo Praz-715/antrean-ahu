@@ -25,6 +25,13 @@ const hint = computed(() => {
   return 'Coba muat ulang halaman. Bila tetap gagal, laporkan ke administrator beserta waktu kejadiannya.'
 })
 
+/**
+ * Ekspresi template dikompilasi dalam lingkup komponen, jadi `import.meta` tidak
+ * bisa dibaca langsung dari sana — nilainya diambil di sini. Konstanta build, jadi
+ * blok teknis di bawah hilang sepenuhnya dari bundel produksi.
+ */
+const isDev = import.meta.dev
+
 useHead({ title: title.value })
 
 /**
@@ -41,6 +48,15 @@ function goHome() {
     <UiThemeToggle floating />
 
     <div class="w-full max-w-md text-center">
+      <!-- Lambang ikut di halaman galat: sering inilah satu-satunya layar yang
+           terbuka, dan pengunjung perlu tahu sistem mana yang sedang bermasalah.
+
+           Dibungkus pembungkus flex karena akar UiBrandLogo ber-`inline-flex`:
+           tanpa itu ia berbagi baris dengan ikon status di bawahnya. -->
+      <div class="mb-8 flex justify-center">
+        <UiBrandLogo size="md" />
+      </div>
+
       <UIcon v-if="status === 404" name="i-lucide-map-pin-off" class="mx-auto size-14 text-slate-400" />
       <UIcon v-else-if="status === 403" name="i-lucide-shield-alert" class="mx-auto size-14 text-slate-400" />
       <UIcon v-else name="i-lucide-triangle-alert" class="mx-auto size-14 text-slate-400" />
@@ -57,9 +73,16 @@ function goHome() {
         {{ hint }}
       </p>
 
-      <!-- Pesan teknis hanya berguna bila memang ada; jangan menakuti tanpa isi -->
+      <!--
+        Pesan teknis hanya saat pengembangan.
+
+        Isinya `error.message` apa adanya — di produksi itu bisa berupa pesan
+        Prisma, nama tabel, atau potongan galat runtime, sementara halaman ini
+        justru yang paling sering terbuka di depan pengunjung. Yang mereka
+        butuhkan sudah ada di `hint` di atas.
+      -->
       <p
-        v-if="error?.message && status !== 404"
+        v-if="isDev && error?.message && status !== 404"
         class="mt-4 rounded-lg bg-slate-100 p-3 text-left font-mono text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-400"
       >
         {{ error.message }}

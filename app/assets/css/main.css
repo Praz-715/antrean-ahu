@@ -2,24 +2,44 @@
 @import "@nuxt/ui";
 
 /* ------------------------------------------------------------------
-   ANTREAN design tokens
-   Warna brand: biru laut yang tenang + aksen amber untuk "sedang dipanggil"
+   SISTEM ANTREAN AHU — design tokens
+
+   Identitasnya diambil dari logo Pengayoman/AHU di `app/assets/img/logo-ahu.png`:
+   biru navy pekat (#032741) sebagai warna dominan, dan kuning emas (#fed206)
+   sebagai satu-satunya aksen. Navy dipilih karena melambangkan ketenangan,
+   pemikiran rasional, dan kedamaian — nada yang pas untuk ruang tunggu layanan
+   publik, bukan warna yang menuntut perhatian.
+
+   Tangga `brand-*` disusun mengelilingi navy logo (brand-900 ≈ warna logo),
+   bukan biru terang seperti sebelumnya. Nama tokennya dipertahankan supaya
+   seluruh antarmuka yang sudah memakai `bg-brand-50` / `text-brand-700` /
+   `dark:bg-brand-950` ikut berpindah tema tanpa perlu disunting satu per satu.
 ------------------------------------------------------------------ */
 @theme static {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
 
-  --color-brand-50: #eef6ff;
-  --color-brand-100: #d9eaff;
-  --color-brand-200: #bcdaff;
-  --color-brand-300: #8ec3ff;
-  --color-brand-400: #59a1ff;
-  --color-brand-500: #337dff;
-  --color-brand-600: #1b5cf5;
-  --color-brand-700: #1547e1;
-  --color-brand-800: #183bb6;
-  --color-brand-900: #19378f;
-  --color-brand-950: #142257;
+  --color-brand-50: #eff5fb;
+  --color-brand-100: #dbe8f5;
+  --color-brand-200: #bcd3ec;
+  --color-brand-300: #8fb3dc;
+  --color-brand-400: #6293c9;
+  --color-brand-500: #3f72ad;
+  --color-brand-600: #2d5892;
+  --color-brand-700: #254776;
+  --color-brand-800: #1e3a5f;
+  --color-brand-900: #132b48;
+  --color-brand-950: #0a1b30;
+
+  /*
+    Emas logo. Dipakai HANYA di atas permukaan navy — di atas putih rasionya
+    1,6:1, jadi tidak pernah menjadi warna teks pada tema terang.
+  */
+  --color-gold-200: #fff1a8;
+  --color-gold-300: #ffe66b;
+  --color-gold-400: #fed206;
+  --color-gold-500: #e0b800;
+  --color-gold-600: #b08d00;
 }
 
 /**
@@ -154,4 +174,138 @@ body {
     linear-gradient(-45deg, var(--color-slate-600) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, var(--color-slate-600) 75%),
     linear-gradient(-45deg, transparent 75%, var(--color-slate-600) 75%);
+}
+
+/* ------------------------------------------------------------------
+   Indikator "sedang memuat"
+
+   Gayanya dipilih dari /admin/settings dan disampaikan lewat atribut
+   `data-skeleton` di elemen `html` (lihat `app.vue`). Ditulis sebagai CSS,
+   bukan kelas kondisional di tiap komponen, karena kerangka isi halaman
+   tersebar di ±40 pemakaian `USkeleton` yang tidak mungkin disunting
+   sendiri-sendiri setiap kali gayanya berubah.
+------------------------------------------------------------------ */
+
+/**
+ * Bilah puncak halaman.
+ *
+ * Gradiennya brand-500 → emas → brand-500 supaya terbaca di dua tema: navy
+ * hilang di atas latar gelap, emas hilang di atas putih, dan gradien yang
+ * memuat keduanya selalu punya bagian yang kontras di mana pun ia berada.
+ */
+.antrean-loading-bar {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-brand-500) 25%,
+    var(--color-gold-400) 50%,
+    var(--color-brand-500) 75%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  animation: antrean-bar-slide 1.1s linear infinite;
+}
+
+@keyframes antrean-bar-slide {
+  from { background-position: 150% 0; }
+  to { background-position: -150% 0; }
+}
+
+/**
+ * Cincin berputar; dipakai spinner pojok dan overlay.
+ *
+ * Warnanya `currentColor`, bukan emas yang dipatok: kedua pemakainya berlatar
+ * berbeda — pil emas berteks navy dan overlay navy berteks terang — dan cincin
+ * beremas tetap akan hilang di atas pil emasnya sendiri.
+ */
+.antrean-loading-ring {
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: antrean-ring-spin 0.7s linear infinite;
+}
+
+@keyframes antrean-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------- kerangka isi halaman ---------------- */
+
+/**
+ * `animation: none` sebagai titik awal.
+ *
+ * Kelas `animate-pulse` bawaan Nuxt UI tetap terpasang di elemen yang sama —
+ * `app.config.ts` hanya bisa MENAMBAH kelas, tidak menggantinya (lihat catatan di
+ * berkas itu). Aturan ini dituliskan di luar `@layer` mana pun, dan pada Tailwind
+ * v4 gaya tanpa layer mengalahkan seluruh gaya berlayer — termasuk utilitas
+ * `animate-pulse` — apa pun urutan penulisannya. Jadi pulse bawaannya mati di
+ * sini, lalu gaya yang dipilih dipasang ulang di bawah.
+ */
+.antrean-skeleton {
+  position: relative;
+  overflow: hidden;
+  animation: none;
+}
+
+/* `pulse` — perilaku bawaan, sama dengan `animate-pulse` milik Tailwind. */
+html[data-skeleton="pulse"] .antrean-skeleton {
+  animation: antrean-skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes antrean-skeleton-pulse {
+  50% { opacity: 0.5; }
+}
+
+/*
+  `shimmer` — kilau yang melintas sekali per putaran.
+
+  Digambar sebagai `::after`, bukan sebagai latar elemennya, supaya `bg-elevated`
+  yang diwarisi dari tema Nuxt UI tetap utuh di baliknya.
+*/
+html[data-skeleton="shimmer"] .antrean-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  animation: antrean-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Kelas tema duduk di elemen `html` yang sama, jadi keduanya digabung. */
+html[data-skeleton="shimmer"].dark .antrean-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.09), transparent);
+}
+
+@keyframes antrean-skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/*
+  `static` tidak butuh aturan sendiri: tanpa salah satu blok di atas, kerangkanya
+  memang diam. Yang tersisa hanya warna dan bentuknya — itu sudah cukup
+  menandakan "isi belum datang" bagi perangkat yang tidak sanggup menganimasikan
+  puluhan kotak sekaligus.
+*/
+
+/**
+ * Hormati permintaan sistem untuk mengurangi gerak.
+ *
+ * Semua animasi di atas bersifat dekoratif — keadaan memuat sudah disampaikan
+ * lewat warna, `aria-busy` pada `USkeleton`, dan `role="status"` pada indikator.
+ * Jadi mematikan gerakannya tidak menghilangkan informasi apa pun.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .antrean-loading-bar,
+  .antrean-loading-ring,
+  html[data-skeleton="pulse"] .antrean-skeleton {
+    animation: none;
+  }
+
+  html[data-skeleton="shimmer"] .antrean-skeleton::after {
+    content: none;
+  }
+
+  /* Bilah tanpa gerak tetap harus terlihat sebagai bilah, bukan pita transparan. */
+  .antrean-loading-bar {
+    background: var(--color-brand-500);
+  }
 }
