@@ -9,6 +9,7 @@ import { queueService } from './queue.service'
 import { eventService } from './event.service'
 import { settingService } from './setting.service'
 import { SETTING_KEYS } from '../../shared/constants/settings'
+import { parseQueueTypeIds, type DisplayDeviceType } from '../../shared/constants/display'
 
 /**
  * Kumpulkan berkas yang dirujuk widget sebuah template.
@@ -79,6 +80,23 @@ export async function touchDevice(deviceId: string, lastSeenAt: Date | null | un
   return true
 }
 
+/**
+ * Pastikan seluruh id layanan memang milik event tersebut dan belum dihapus.
+ *
+ * Diperiksa sebagai SATU kueri, bukan per id: penyetelan layar bisa menyebut
+ * belasan layanan sekaligus. Yang dilaporkan jumlah yang tidak ditemukan, bukan
+ * id-nya — pesan yang menyebut ULID tidak menolong siapa pun di antarmuka.
+ */
+async function assertQueueTypesInEvent(eventId: string, ids: string[]) {
+  if (!ids.length) return
+  const ada = await prisma.queueType.count({
+    where: { id: { in: ids }, eventId, deletedAt: null },
+  })
+  if (ada !== ids.length) {
+    throw errors.notFound(`${ids.length - ada} jenis antrean tidak ditemukan pada event ini`)
+  }
+}
+
 export const displayService = {
   /** Seluruh data yang dibutuhkan satu layar untuk merender dirinya (§17, §18, §45). */
   async state(deviceCode: string) {
@@ -133,18 +151,44 @@ export const displayService = {
       }),
     ])
 
-    const filtered = device.type === 'QUEUE_TYPE' && device.queueTypeId
-      ? board.board.filter(b => b.queueType.id === device.queueTypeId)
-      : board.board
+/**
+     * Layanan yang boleh tampil di layar ini, PADA URUTAN TAMPILNYA.
+     *
+     * Larik kosong berarti "semua layanan" dan hanya berlaku untuk tipe GLOBAL.
+     * Untuk dua tipe lainnya larik ini selalu menyaring — termasuk ketika isinya
+     * habis karena seluruh layanan pilihannya sudah dihapus. Papan kosong adalah
+     * jawaban yang benar di situ: layar bertipe khusus yang tiba-tiba menampilkan
+     * SEMUA layanan terlihat seperti sudah tersetel padahal setelannya hilang, dan
+     * tidak ada yang akan menyadarinya.
+     */
+    const urutanLayanan: string[] = device.type === 'SUBSET'
+      ? parseQueueTypeIds(device.queueTypeIds)
+      : device.type === 'QUEUE_TYPE' && device.queueTypeId
+        ? [device.queueTypeId]
+        : []
 
     /**
-     * Perangkat yang dikunci pada satu layanan hanya menerima loket yang MELAYANI
-     * layanan itu — kalau tidak, papan per loket ikut menampilkan loket yang tidak
-     * ada hubungannya dengan layar tersebut.
+     * Dipetakan DARI `urutanLayanan`, bukan disaring dari papan.
+     *
+     * Papan datang terurut menurut `displayOrder` jenis antrean — urutan yang
+     * berlaku untuk seluruh event. Tipe SUBSET justru ada supaya satu layar bisa
+     * punya urutannya sendiri, jadi urutan lariknyalah yang menentukan, dan itu
+     * hanya terjaga bila iterasinya dimulai dari larik itu.
      */
-    const counters = device.type === 'QUEUE_TYPE' && device.queueTypeId
-      ? board.counters.filter(c => c.services.some(s => s.id === device.queueTypeId))
-      : board.counters
+    const filtered = device.type === 'GLOBAL'
+      ? board.board
+      : urutanLayanan
+          .map(id => board.board.find(b => b.queueType.id === id))
+          .filter((b): b is NonNullable<typeof b> => Boolean(b))
+
+    /**
+     * Perangkat yang dikunci pada layanan tertentu hanya menerima loket yang
+     * MELAYANI salah satunya — kalau tidak, papan per loket ikut menampilkan loket
+     * yang tidak ada hubungannya dengan layar tersebut.
+     */
+    const counters = device.type === 'GLOBAL'
+      ? board.counters
+      : board.counters.filter(c => c.services.some(s => urutanLayanan.includes(s.id)))
 
     // Jangan menulis pada setiap pembacaan: display polling tiap 10 detik, dan
     // indikator "terakhir terlihat" tidak butuh presisi setinggi itu (§45).
@@ -263,8 +307,9 @@ export const displayService = {
   async create(organizationId: string, input: {
     eventId: string
     name: string
-    type: 'GLOBAL' | 'QUEUE_TYPE'
+    type: DisplayDeviceType
     queueTypeId?: string | null
+    queueTypeIds?: string[] | null
   }) {
     const event = await prisma.event.findFirst({
       where: { id: input.eventId, organizationId, deletedAt: null },
@@ -276,6 +321,18 @@ export const displayService = {
       throw errors.validation('Display per layanan wajib memilih jenis antrean')
     }
 
+    const idTerpilih = input.type === 'SUBSET' ? parseQueueTypeIds(input.queueTypeIds) : []
+    if (input.type === 'SUBSET') {
+      if (!idTerpilih.length) {
+        throw errors.validation('Display beberapa layanan wajib memilih minimal satu jenis antrean')
+      }
+      await assertQueueTypesInEvent(input.eventId, idTerpilih)
+    }
+
+    if (input.type === 'QUEUE_TYPE') {
+      await assertQueueTypesInEvent(input.eventId, [input.queueTypeId!])
+    }
+
     return prisma.displayDevice.create({
       data: {
         id: newId(),
@@ -284,10 +341,14 @@ export const displayService = {
         name: input.name,
         type: input.type,
         queueTypeId: input.type === 'QUEUE_TYPE' ? input.queueTypeId ?? null : null,
+        queueTypeIds: input.type === 'SUBSET' ? idTerpilih : null,
         status: 'UNPAIRED',
       },
     })
   },
+
+  /** Dipakai endpoint PATCH; diekspor agar aturan "milik event ini" hanya ada satu. */
+  assertQueueTypesInEvent,
 
   async remove(organizationId: string, id: string) {
     const device = await prisma.displayDevice.findFirst({

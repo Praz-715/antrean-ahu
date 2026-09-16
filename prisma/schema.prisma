@@ -80,6 +80,8 @@ enum DataSourceAuthType {
 enum DisplayType {
   GLOBAL
   QUEUE_TYPE
+  /// Beberapa layanan pilihan admin, ditampilkan pada urutan yang ia tentukan.
+  SUBSET
 }
 
 enum DisplayDeviceStatus {
@@ -771,6 +773,8 @@ model DisplayDevice {
   name            String              @db.VarChar(150)
   type            DisplayType         @default(GLOBAL)
   queueTypeId     String?             @map("queue_type_id") @db.Char(26)
+  /// Dipakai tipe SUBSET. Larik id layanan; URUTANNYA adalah urutan tampil di papan.
+  queueTypeIds    Json?               @map("queue_type_ids")
   templateId      String?             @map("template_id") @db.Char(26)
   status          DisplayDeviceStatus @default(UNPAIRED)
   lastSeenAt      DateTime?           @map("last_seen_at") @db.DateTime(3)

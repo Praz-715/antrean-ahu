@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { apiFetch } from '../../composables/useApi'
 import { nullableValue, SELECT_NONE } from '#shared/constants/ui'
+import { DISPLAY_TYPE_OPTIONS, parseQueueTypeIds, type DisplayDeviceType } from '#shared/constants/display'
 import { PERMISSIONS } from '#shared/constants/permissions'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -10,10 +11,12 @@ interface DisplayRow {
   id: string
   deviceCode: string
   name: string
-  type: 'GLOBAL' | 'QUEUE_TYPE'
+  type: DisplayDeviceType
   status: 'UNPAIRED' | 'ONLINE' | 'OFFLINE'
   lastSeenAt: string | null
   queueType: { id: string, code: string, name: string } | null
+  /** Tipe SUBSET: urutan larik ini adalah urutan tampil di papan. */
+  queueTypeIds: string[] | null
   template: { id: string, name: string } | null
   templateId: string | null
   event: { id: string, name: string }
@@ -56,30 +59,75 @@ onBeforeUnmount(() => clearInterval(timer))
 
 const modalOpen = ref(false)
 const saving = ref(false)
-const form = reactive({ name: '', type: 'GLOBAL' as 'GLOBAL' | 'QUEUE_TYPE', queueTypeId: '' })
+
+/**
+ * Satu modal melayani "buat" dan "ubah".
+ *
+ * `editId` yang membedakannya. Dipakai bersama karena tipe SUBSET tidak masuk akal
+ * kalau hanya bisa disetel sekali: urutan layanan di satu lorong berubah setiap kali
+ * loketnya dipindah, dan memaksa hapus-lalu-buat-ulang berarti kode perangkatnya
+ * berganti — setiap layar yang sudah dipasang harus dipairing ulang.
+ */
+const editId = ref<string | null>(null)
+const form = reactive({
+  name: '',
+  type: 'GLOBAL' as DisplayDeviceType,
+  queueTypeId: '',
+  queueTypeIds: [] as string[],
+})
 
 function openCreate() {
-  Object.assign(form, { name: '', type: 'GLOBAL', queueTypeId: queueTypes.value[0]?.id ?? '' })
+  editId.value = null
+  Object.assign(form, {
+    name: '',
+    type: 'GLOBAL',
+    queueTypeId: queueTypes.value[0]?.id ?? '',
+    queueTypeIds: [],
+  })
   modalOpen.value = true
 }
 
+function openEdit(device: DisplayRow) {
+  editId.value = device.id
+  Object.assign(form, {
+    name: device.name,
+    type: device.type,
+    queueTypeId: device.queueType?.id ?? queueTypes.value[0]?.id ?? '',
+    queueTypeIds: parseQueueTypeIds(device.queueTypeIds),
+  })
+  modalOpen.value = true
+}
+
+/** Syarat yang sama dengan yang dijaga server, supaya tombolnya tidak menjanjikan. */
+const bolehSimpan = computed(() => {
+  if (form.name.trim().length < 2) return false
+  if (form.type === 'QUEUE_TYPE') return Boolean(form.queueTypeId)
+  if (form.type === 'SUBSET') return form.queueTypeIds.length > 0
+  return true
+})
+
 async function save() {
   saving.value = true
-  const res = await call(
-    '/api/admin/displays',
-    {
-      method: 'POST',
-      body: {
-        eventId: currentId.value,
-        name: form.name,
-        type: form.type,
-        queueTypeId: form.type === 'QUEUE_TYPE' ? form.queueTypeId : null,
-      },
-    },
-    'Perangkat display dibuat',
-  )
+  const body = {
+    name: form.name,
+    type: form.type,
+    queueTypeId: form.type === 'QUEUE_TYPE' ? form.queueTypeId : null,
+    queueTypeIds: form.type === 'SUBSET' ? form.queueTypeIds : null,
+  }
+  const res = editId.value
+    ? await call(`/api/admin/displays/${editId.value}`, { method: 'PATCH', body }, 'Perangkat display diperbarui')
+    : await call('/api/admin/displays', { method: 'POST', body: { ...body, eventId: currentId.value } }, 'Perangkat display dibuat')
   saving.value = false
   if (res) { modalOpen.value = false; await load() }
+}
+
+/** Keterangan tipe pada kartu perangkat. */
+function labelTipe(device: DisplayRow) {
+  if (device.type === 'GLOBAL') return 'Display global — semua layanan'
+  if (device.type === 'QUEUE_TYPE') return `Khusus ${device.queueType?.name ?? '—'}`
+  const ids = parseQueueTypeIds(device.queueTypeIds)
+  const nama = ids.map(id => queueTypes.value.find(t => t.id === id)?.code ?? '?')
+  return `${ids.length} layanan — ${nama.join(' → ')}`
 }
 
 const deleteTarget = ref<DisplayRow | null>(null)
@@ -184,7 +232,7 @@ function lastSeen(value: string | null) {
               {{ device.name }}
             </p>
             <p class="text-sm text-slate-500">
-              {{ device.type === 'GLOBAL' ? 'Display global — semua layanan' : `Khusus ${device.queueType?.name}` }}
+              {{ labelTipe(device) }}
             </p>
           </div>
           <span class="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium dark:bg-slate-800">
@@ -215,7 +263,15 @@ function lastSeen(value: string | null) {
           Terakhir terlihat: {{ lastSeen(device.lastSeenAt) }}
         </p>
 
-        <div v-if="can(PERMISSIONS.DISPLAY_MANAGE)" class="mt-4 flex gap-2">
+        <div v-if="can(PERMISSIONS.DISPLAY_MANAGE)" class="mt-4 flex flex-wrap gap-2">
+          <UButton
+            size="sm"
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-pencil"
+            label="Ubah"
+            @click="openEdit(device)"
+          />
           <UiActionButton
             size="sm"
             variant="outline"
@@ -229,7 +285,11 @@ function lastSeen(value: string | null) {
       </div>
     </div>
 
-    <UModal v-model:open="modalOpen" title="Display Baru" description="Display global menampilkan semua layanan; display khusus hanya satu layanan.">
+    <UModal
+      v-model:open="modalOpen"
+      :title="editId ? 'Ubah Display' : 'Display Baru'"
+      description="Global menampilkan semua layanan, khusus hanya satu, dan “beberapa layanan” menampilkan pilihan Anda pada urutan yang Anda tentukan."
+    >
       <template #body>
         <div class="space-y-4">
           <UFormField label="Nama Display" required>
@@ -237,14 +297,7 @@ function lastSeen(value: string | null) {
           </UFormField>
 
           <UFormField label="Tipe">
-            <USelect
-              v-model="form.type"
-              :items="[
-                { label: 'Global — semua layanan', value: 'GLOBAL' },
-                { label: 'Khusus satu layanan', value: 'QUEUE_TYPE' },
-              ]"
-              class="w-full"
-            />
+            <USelect v-model="form.type" :items="DISPLAY_TYPE_OPTIONS" class="w-full" />
           </UFormField>
 
           <UFormField v-if="form.type === 'QUEUE_TYPE'" label="Jenis Antrean" required>
@@ -254,6 +307,15 @@ function lastSeen(value: string | null) {
               class="w-full"
             />
           </UFormField>
+
+          <UFormField
+            v-else-if="form.type === 'SUBSET'"
+            label="Layanan & urutannya"
+            required
+            help="Urutan daftar ini adalah urutan kartu di papan antrean, menimpa urutan bawaan event."
+          >
+            <UiQueueTypeOrderPicker v-model="form.queueTypeIds" :options="queueTypes" />
+          </UFormField>
         </div>
       </template>
 
@@ -262,9 +324,9 @@ function lastSeen(value: string | null) {
           <UButton variant="ghost" color="neutral" label="Batal" @click="close" />
           <UButton
             :loading="saving"
-            :disabled="form.name.trim().length < 2 || (form.type === 'QUEUE_TYPE' && !form.queueTypeId)"
+            :disabled="!bolehSimpan"
             icon="i-lucide-save"
-            label="Buat"
+            :label="editId ? 'Simpan' : 'Buat'"
             @click="save"
           />
         </div>
