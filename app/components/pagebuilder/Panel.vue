@@ -429,7 +429,22 @@ function hapusTitik() {
             :hint="`${draft.theme.hero.overlay}%`"
             help="Makin pekat, makin terbaca teksnya di atas gambar."
           >
-            <USlider v-model="draft.theme.hero.overlay" :min="0" :max="100" :step="2" />
+            <!--
+              Nilainya dinormalkan menjadi angka, bukan lewat `v-model` langsung.
+              `USlider` dibangun di atas penggeser reka-ui yang modelnya larik
+              (ia mendukung beberapa pegangan), dan nilai yang dikembalikannya ke
+              atas ikut berbentuk larik — `[82]`, bukan `82`. Penggesernya tampak
+              bekerja, tetapi `theme.hero.overlay` menjadi larik dan seluruh PATCH
+              halaman ditolak 422 "expected number, received array": satu penggeser
+              membuat SEMUA perubahan di halaman ini gagal disimpan.
+            -->
+            <USlider
+              :model-value="draft.theme.hero.overlay"
+              :min="0"
+              :max="100"
+              :step="2"
+              @update:model-value="(v) => (draft.theme.hero.overlay = Array.isArray(v) ? (v[0] ?? 0) : Number(v))"
+            />
           </UFormField>
 
           <div class="space-y-2 sm:col-span-2 xl:col-span-3">

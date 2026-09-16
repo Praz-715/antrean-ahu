@@ -210,9 +210,51 @@ onMounted(async () => {
 
   pickr.on('save', () => pickr?.hide())
   pickr.on('cancel', () => pickr?.hide())
+
+  /**
+   * Cegah interaksi di panel dianggap "klik di luar" oleh modal.
+   *
+   * Pickr menempelkan panelnya ke `document.body`, jadi bagi modal Nuxt UI
+   * (reka-ui) seluruh panel itu berada DI LUAR isinya. Reka-ui memasang pendengar
+   * `pointerdown` di `document` untuk menutup modal pada klik di luar, sehingga
+   * memilih warna justru membanting modalnya tertutup — beserta seluruh isian
+   * formulir yang belum disimpan.
+   *
+   * Dihentikan di akar panel, bukan di `document`: saat event sampai ke sini
+   * penangan Pickr sendiri sudah selesai berjalan (mereka ada di elemen di
+   * dalamnya), jadi pemilih warnanya tetap berfungsi penuh sementara `document`
+   * tidak pernah melihat eventnya.
+   *
+   * `focusin` ikut dihentikan karena reka-ui juga menutup lapisan ketika fokus
+   * berpindah ke luar isinya — itu yang terjadi saat kolom heksadesimal di dalam
+   * panel diketik.
+   */
+  const panel = (pickr.getRoot() as { app?: HTMLElement } | undefined)?.app
+  if (panel) {
+    for (const nama of ['pointerdown', 'mousedown', 'focusin'] as const) {
+      panel.addEventListener(nama, tahanEvent)
+    }
+  }
 })
 
+/** Dipisah agar bisa dilepas kembali saat komponen dilepas. */
+function tahanEvent(event: Event) {
+  event.stopPropagation()
+}
+
 onBeforeUnmount(() => {
+  /*
+   * Pendengar dilepas lebih dulu. `destroyAndRemove` memang membuang elemen
+   * panelnya, tetapi melepasnya sendiri membuat pasangan tambah/lepas tetap
+   * terbaca sebagai satu kesatuan bila kelak panelnya tidak lagi dibuang.
+   */
+  const panel = (pickr?.getRoot() as { app?: HTMLElement } | undefined)?.app
+  if (panel) {
+    for (const nama of ['pointerdown', 'mousedown', 'focusin'] as const) {
+      panel.removeEventListener(nama, tahanEvent)
+    }
+  }
+
   pickr?.destroyAndRemove()
   pickr = null
 })

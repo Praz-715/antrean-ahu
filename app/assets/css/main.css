@@ -125,6 +125,20 @@ body {
   border-radius: 0.75rem;
   border: 1px solid var(--color-slate-200);
   box-shadow: 0 10px 30px rgb(15 23 42 / 0.12);
+
+  /**
+   * Panelnya harus tetap bisa diklik saat berada di atas modal.
+   *
+   * Pickr menempelkan panel ke `document.body`, sementara modal Nuxt UI (reka-ui)
+   * menyetel `pointer-events: none` pada `body` selama terbuka dan menyalakannya
+   * kembali HANYA untuk isi modalnya. Panel yang berada di luar subtree itu ikut
+   * mewarisi `none`: ia tergambar lengkap dan terlihat normal, tetapi setiap klik
+   * jatuh menembusnya — roda warna, contoh warna, dan tombol "Pakai" tidak bisa
+   * dipakai sama sekali di dalam modal mana pun.
+   *
+   * Bukan soal z-index: Pickr sudah memakai 10000, jauh di atas modalnya.
+   */
+  pointer-events: auto;
 }
 
 .dark .pcr-app {
