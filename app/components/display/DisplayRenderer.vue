@@ -62,7 +62,15 @@ const props = defineProps<{
   announcements?: Array<{ id: string, message: string }>
   mediaById?: Record<string, { url: string, type: string }>
   playlistById?: Record<string, { items: Array<{ media: { url: string, type: string }, durationSeconds: number }> }>
-  qrUrl?: string | null
+  /**
+   * QR per widget, bukan satu URL untuk seluruh template.
+   *
+   * Sebelumnya prop ini bernama `qrUrl` dan TIDAK PERNAH DIISI oleh siapa pun —
+   * baik halaman layar maupun pratinjau builder — sehingga widget QR selamanya
+   * menggambar kotak bertuliskan "QR" alih-alih QR-nya. Dikunci per widget karena
+   * satu template boleh memuat beberapa QR yang menunjuk halaman publik berbeda.
+   */
+  qrByWidgetId?: Record<string, { url: string, pageTitle?: string }>
   /** nomor yang sedang disorot karena baru dipanggil */
   highlighted?: string | null
   /** builder menampilkan data contoh agar kanvas tidak kosong */
@@ -481,11 +489,31 @@ const dateText = computed(() => now.value.toLocaleDateString('id-ID', { weekday:
           </div>
         </template>
 
-        <!-- QR -->
+<!-- QR -->
         <div v-else-if="widget.type === 'QRCODE'" class="flex size-full flex-col items-center justify-center gap-2">
-          <img v-if="qrUrl" :src="qrUrl" alt="QR" class="h-full w-auto max-w-full rounded bg-white p-1">
-          <div v-else class="flex size-full items-center justify-center rounded bg-white/10" :style="{ fontSize: '0.35em' }">
-            QR
+          <!--
+            Latarnya selalu putih dengan bantalan: QR dibaca kamera ponsel dari
+            jarak satu meter, dan modul gelap di atas latar gelap tidak terbaca
+            sama sekali walau gambarnya tergambar sempurna.
+          -->
+          <img
+            v-if="qrByWidgetId?.[widget.id]?.url"
+            :src="qrByWidgetId[widget.id]!.url"
+            :alt="`QR ${qrByWidgetId[widget.id]!.pageTitle ?? 'halaman antrean'}`"
+            class="h-full w-auto max-w-full rounded bg-white p-1.5"
+          >
+          <!--
+            Tanpa QR, sebabnya disebutkan. Kotak bertuliskan "QR" saja membuat
+            admin menyangka widgetnya rusak, padahal yang kurang adalah halaman
+            publik yang terbit.
+          -->
+          <div
+            v-else
+            class="flex size-full flex-col items-center justify-center gap-1 rounded bg-white/10 text-center"
+            :style="{ fontSize: '0.3em' }"
+          >
+            <UIcon name="i-lucide-qr-code" class="size-[2em] opacity-60" />
+            <span class="opacity-80">Belum ada halaman publik yang terbit</span>
           </div>
         </div>
 

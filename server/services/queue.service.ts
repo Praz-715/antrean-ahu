@@ -378,7 +378,13 @@ export const queueService = {
           id: true,
           code: true,
           name: true,
+          /*
+           * Jenis antrean terhapus disaring: penghapusannya halus, jadi barisnya
+           * masih ada di `counter_services` dan tanpa ini panel loket di layar
+           * antrean ikut menampilkan layanan yang sudah tidak ada.
+           */
           services: {
+            where: { queueType: { deletedAt: null } },
             orderBy: { displayOrder: 'asc' },
             select: { queueType: { select: { id: true, code: true, name: true, color: true } } },
           },

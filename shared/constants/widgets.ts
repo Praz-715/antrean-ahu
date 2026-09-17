@@ -32,6 +32,8 @@ export interface WidgetMeta {
   needsMedia?: boolean
   needsPlaylist?: boolean
   needsQueueType?: boolean
+  /** Butuh pilihan halaman publik — QR mana yang dicetak di layar. */
+  needsPublicPage?: boolean
   /** Butuh daftar field formulir (dari Form Builder) pada panel properti. */
   needsFormFields?: boolean
 }
@@ -88,7 +90,7 @@ export const WIDGET_CATALOG: WidgetMeta[] = [
   { type: 'TEXT', label: 'Teks', icon: 'i-lucide-type', description: 'Teks bebas', defaultSize: { width: 500, height: 120 } },
   { type: 'RUNNING_TEXT', label: 'Teks Berjalan', icon: 'i-lucide-scroll-text', description: 'Teks bergerak dari kanan ke kiri', defaultSize: { width: 1920, height: 90 } },
   { type: 'ANNOUNCEMENT', label: 'Pengumuman', icon: 'i-lucide-bell-ring', description: 'Pengumuman aktif dari admin', defaultSize: { width: 1920, height: 90 } },
-  { type: 'QRCODE', label: 'QR Code', icon: 'i-lucide-qr-code', description: 'QR halaman ambil antrean', defaultSize: { width: 260, height: 300 } },
+  { type: 'QRCODE', label: 'QR Code', icon: 'i-lucide-qr-code', description: 'QR halaman ambil antrean', defaultSize: { width: 260, height: 300 }, needsPublicPage: true },
 ]
 
 export const WIDGET_META = Object.fromEntries(

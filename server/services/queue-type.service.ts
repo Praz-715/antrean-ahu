@@ -123,6 +123,39 @@ export const queueTypeService = {
       throw errors.conflict(ERROR_CODES.CONFLICT, `Masih ada ${active} antrean aktif pada jenis antrean ini`)
     }
 
+    /**
+     * Loket yang masih melayani jenis antrean ini harus dilepas lebih dulu.
+     *
+     * Penghapusannya HALUS (`deletedAt`), jadi `onDelete: Cascade` pada
+     * `counter_services` tidak pernah berjalan dan barisnya tertinggal menunjuk
+     * jenis antrean yang sudah tidak ada. Akibatnya berantai: loketnya masih
+     * menampilkan layanan itu, dan menyimpan ulang daftar layanannya ditolak
+     * karena id tersebut tidak lagi lolos pemeriksaan "milik event ini".
+     *
+     * Barisnya TIDAK dibersihkan otomatis di sini. Satu loket yang kehilangan
+     * seluruh layanannya berhenti bisa memanggil siapa pun, dan operator yang
+     * duduk di situ ikut kehilangan cakupan kerjanya — keputusan sebesar itu
+     * harus diambil admin secara sadar, bukan menjadi efek samping dari menghapus
+     * satu jenis antrean.
+     *
+     * Nama loketnya disebutkan supaya admin tahu ke mana harus pergi; tanpa itu
+     * pesannya hanya memberitahu bahwa ada masalah, bukan di mana.
+     */
+    const dipakaiLoket = await prisma.counterService.findMany({
+      where: { queueTypeId: id },
+      select: { counter: { select: { name: true } } },
+      orderBy: { counter: { name: 'asc' } },
+      take: 10,
+    })
+    if (dipakaiLoket.length) {
+      const nama = dipakaiLoket.map(r => r.counter.name)
+      throw errors.conflict(
+        ERROR_CODES.CONFLICT,
+        `Jenis antrean ini masih dilayani ${nama.length} loket (${nama.join(', ')}). `
+        + 'Keluarkan dulu dari daftar layanan loket tersebut.',
+      )
+    }
+
     await prisma.queueType.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } })
     return existing
   },
@@ -146,7 +179,17 @@ export const counterService = {
       orderBy: [{ displayOrder: 'asc' }, { code: 'asc' }],
       include: {
         _count: { select: { assignments: true } },
+        /*
+         * Jenis antrean yang sudah dihapus disaring di sini.
+         *
+         * Penghapusannya halus, jadi barisnya masih ada di `counter_services`.
+         * Tanpa saringan ini layanan yang sudah tidak ada tetap tampil di kartu
+         * loket, lalu ikut terkirim saat daftarnya disimpan ulang — dan ditolak.
+         * Saringan ini juga yang memulihkan loket yang sudah lebih dulu rusak
+         * sebelum penghapusannya diblokir.
+         */
         services: {
+          where: { queueType: { deletedAt: null } },
           orderBy: { displayOrder: 'asc' },
           select: { queueType: { select: { id: true, code: true, name: true, color: true, isActive: true } } },
         },
@@ -228,10 +271,25 @@ export const counterService = {
     const unique = [...new Set(queueTypeIds)]
 
     if (unique.length) {
-      const valid = await prisma.queueType.count({
-        where: { id: { in: unique }, eventId: counter.eventId, deletedAt: null },
+      /**
+       * Dua sebab kegagalan dipisahkan.
+       *
+       * Sebelumnya keduanya dijawab "bukan milik event loket ini" — keliru dan
+       * menyesatkan untuk jenis antrean yang MEMANG milik event itu tetapi sudah
+       * dihapus, yang justru kasus yang paling sering terjadi.
+       */
+      const cocok = await prisma.queueType.findMany({
+        where: { id: { in: unique }, eventId: counter.eventId },
+        select: { id: true, name: true, deletedAt: true },
       })
-      if (valid !== unique.length) {
+
+      const terhapus = cocok.filter(t => t.deletedAt).map(t => t.name)
+      if (terhapus.length) {
+        throw errors.validation(
+          `Jenis antrean berikut sudah dihapus dan tidak bisa dipasang lagi: ${terhapus.join(', ')}`,
+        )
+      }
+      if (cocok.length !== unique.length) {
         throw errors.validation('Ada jenis antrean yang bukan milik event loket ini')
       }
     }

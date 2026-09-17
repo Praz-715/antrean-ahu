@@ -106,6 +106,15 @@ const playlistById = computed(() =>
 const queueTypes = ref<Array<{ id: string, code: string, name: string }>>([])
 
 /**
+ * Halaman publik yang TERBIT pada event ini — pilihan QR mana yang dicetak layar.
+ *
+ * Hanya yang terbit: QR halaman yang belum diterbitkan mengarah ke alamat yang
+ * menolak pengunjung, dan layar antrean bukan tempat yang tepat untuk menemukan
+ * hal itu.
+ */
+const publicPages = ref<Array<{ id: string, title: string, publishCode: string, createdAt: string }>>([])
+
+/**
  * Formulir event beserta field-nya (Form Builder, §18).
  *
  * Dipakai widget "Data Pengunjung": admin memilih isian mana yang boleh tampil di
@@ -124,7 +133,7 @@ const forms = ref<Array<{ id: string, name: string, fields: Array<{ id: string, 
  */
 watch(currentId, async () => {
   if (!currentId.value) return
-  const [types, formList] = await Promise.all([
+  const [types, formList, pageList] = await Promise.all([
     apiFetch<Array<{ id: string, code: string, name: string }>>('/api/admin/queue-types', { query: { eventId: currentId.value } }),
     /**
      * Formulir hanya untuk mengisi panel properti; bila akunnya tidak punya izin
@@ -132,10 +141,27 @@ watch(currentId, async () => {
      * pilihannya kosong, bukan halamannya gagal terbuka.
      */
     apiFetch<typeof forms.value>('/api/admin/forms', { query: { eventId: currentId.value } }).catch(() => []),
+    /* Sama seperti formulir: gagal memuatnya tidak boleh menjatuhkan builder. */
+    apiFetch<Array<{ id: string, title: string, publishCode: string, isPublished: boolean, createdAt: string }>>(
+      '/api/admin/public-pages',
+      { query: { eventId: currentId.value } },
+    )
+      /**
+       * Diurutkan TERLAMA DULU, bukan dipakai apa adanya.
+       *
+       * Endpoint admin mengembalikannya terbaru-dulu, sedangkan layar memilih
+       * "halaman pertama yang terbit" dengan `createdAt` naik. Dibiarkan berbeda,
+       * pratinjau builder menampilkan QR halaman lain daripada yang benar-benar
+       * muncul di layar — beda yang tidak terlihat sampai ada yang memindainya.
+       */
+      .then(r => r.filter(p => p.isPublished)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)))
+      .catch(() => []),
     loadTemplates(),
   ])
   queueTypes.value = types
   forms.value = formList
+  publicPages.value = pageList
 }, { immediate: true })
 
 // ---- riwayat undo/redo ----
@@ -527,6 +553,42 @@ const selectedQueueTypeId = nullableProxy(
   () => (selected.value?.config.queueTypeId as string | undefined) ?? null,
   (value) => { if (selected.value) selected.value.config.queueTypeId = value ?? undefined },
 )
+
+/**
+ * "Halaman pertama yang terbit" sengaja menjadi pilihan, bukan hanya perilaku
+ * tersembunyi saat kosong: satu event sering punya beberapa halaman, dan admin
+ * yang membuat template sebelum halamannya ada tetap mendapat QR yang benar
+ * begitu halaman pertamanya terbit — tanpa harus kembali menyunting template.
+ */
+const publicPageOptions = computed(() => [
+  { label: 'Halaman pertama yang terbit', value: SELECT_NONE },
+  ...publicPages.value.map(p => ({ label: p.title, value: p.id })),
+])
+
+const selectedPublicPageId = nullableProxy(
+  () => (selected.value?.config.publicPageId as string | undefined) ?? null,
+  (value) => { if (selected.value) selected.value.config.publicPageId = value ?? undefined },
+)
+
+/**
+ * QR sungguhan di pratinjau, bukan kotak kosong.
+ *
+ * Builder berjalan dengan sesi admin, jadi endpoint QR panel admin bisa dipakai
+ * apa adanya — layar antrean tidak bisa, dan itulah sebabnya sisi layar memakai
+ * `data:` URI yang dirakit server.
+ */
+const qrByWidgetId = computed(() => Object.fromEntries(
+  widgets.value
+    .filter(w => w.type === 'QRCODE')
+    .map((w) => {
+      const dipilih = w.config.publicPageId as string | undefined
+      const page = publicPages.value.find(p => p.id === dipilih) ?? publicPages.value[0]
+      return page
+        ? [w.id, { url: `/api/admin/public-pages/${page.id}/qr?format=svg&size=600`, pageTitle: page.title }]
+        : [w.id, null]
+    })
+    .filter(([, v]) => v) as Array<[string, { url: string, pageTitle: string }]>,
+))
 /**
  * Pilihan isian formulir pada widget "Data Pengunjung".
  *
@@ -725,6 +787,7 @@ const layers = computed(() =>
               :background="background"
               :media-by-id="mediaById"
               :playlist-by-id="playlistById"
+              :qr-by-widget-id="qrByWidgetId"
               preview
             />
 
@@ -915,6 +978,17 @@ const layers = computed(() =>
                   @update:model-value="(v) => { selected!.config.showService = v === true; onPropertyChange() }"
                 />
               </template>
+
+              <UFormField
+                v-if="WIDGET_META[selected.type].needsPublicPage"
+                label="Halaman Publik"
+                :help="publicPages.length
+                  ? 'QR yang dicetak di layar mengarah ke halaman ini.'
+                  : 'Event ini belum punya halaman publik yang terbit — terbitkan dulu di menu Halaman Publik.'"
+                size="xs"
+              >
+                <USelect v-model="selectedPublicPageId" :items="publicPageOptions" class="w-full" size="sm" />
+              </UFormField>
 
               <UFormField v-if="WIDGET_META[selected.type].needsMedia" label="Media" size="xs">
                 <USelect v-model="selectedMediaId" :items="mediaOptions" class="w-full" size="sm" />

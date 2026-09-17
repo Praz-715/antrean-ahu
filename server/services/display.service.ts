@@ -1,3 +1,4 @@
+import QRCode from 'qrcode'
 import { prisma } from '../utils/prisma'
 import { errors } from '../utils/response'
 import { ERROR_CODES } from '../../shared/constants/errors'
@@ -15,8 +16,73 @@ import { parseQueueTypeIds, type DisplayDeviceType } from '../../shared/constant
  * Kumpulkan berkas yang dirujuk widget sebuah template.
  * Dikembalikan sebagai peta id → URL agar renderer tinggal memakainya.
  */
+/**
+ * URL halaman publik — sama persis dengan yang dicetak QR di panel admin.
+ *
+ * Disalin bentuknya dari `publish.service` alih-alih diimpor: fungsi di sana
+ * tidak diekspor, dan mengekspornya hanya untuk ini berarti dua modul saling
+ * menarik padahal yang dibutuhkan cuma satu baris. Kalau bentuknya berubah,
+ * QR yang dicetak admin dan yang tampil di layar harus berubah bersamaan.
+ */
+function publicPageUrl(publishCode: string) {
+  const base = process.env.APP_URL || 'http://localhost:3000'
+  const akar = base.endsWith('/') ? base.slice(0, -1) : base
+  return `${akar}/p/${publishCode}`
+}
+
+/**
+ * QR untuk setiap widget QRCODE di sebuah template.
+ *
+ * Dikunci per WIDGET, bukan per halaman: satu template boleh memuat beberapa QR
+ * yang menunjuk halaman publik berbeda, dan peta berkunci halaman tidak bisa
+ * membedakan dua widget yang kebetulan menunjuk halaman yang sama dari dua
+ * widget yang menunjuk halaman berbeda.
+ *
+ * Bentuknya `data:` URI SVG, bukan URL endpoint: layar antrean tidak punya sesi
+ * admin sehingga `/api/admin/public-pages/:id/qr` tertutup untuknya, dan SVG
+ * tetap tajam pada ukuran widget apa pun tanpa perlu menebak resolusinya.
+ */
+async function resolveWidgetQr(
+  widgets: Array<{ id: string, type: string, config: unknown }>,
+  eventId: string,
+) {
+  const qrWidgets = widgets.filter(w => w.type === 'QRCODE')
+  if (!qrWidgets.length) return {}
+
+  const terbit = await prisma.publicPage.findMany({
+    where: { eventId, isPublished: true, deletedAt: null },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, title: true, publishCode: true },
+  })
+  if (!terbit.length) return {}
+
+  const hasil: Record<string, { url: string, pageTitle: string }> = {}
+  for (const w of qrWidgets) {
+    const pilihan = (w.config as { publicPageId?: unknown } | null)?.publicPageId
+    /*
+     * Halaman yang dipilih admin; bila belum dipilih ATAU halamannya sudah
+     * ditarik dari publikasi, dipakai halaman terbit pertama. Widget QR yang
+     * belum disetel tetap menampilkan sesuatu yang berguna alih-alih kosong —
+     * itulah keadaan template yang dibuat sebelum pilihan ini ada.
+     */
+    const page = terbit.find(p => p.id === pilihan) ?? terbit[0]!
+    hasil[w.id] = {
+      url: `data:image/svg+xml;base64,${Buffer.from(
+        await QRCode.toString(publicPageUrl(page.publishCode), {
+          type: 'svg',
+          margin: 1,
+          errorCorrectionLevel: 'M',
+        }),
+      ).toString('base64')}`,
+      pageTitle: page.title,
+    }
+  }
+  return hasil
+}
+
 export async function resolveTemplateAssets(
-  widgets: Array<{ mediaId: string | null, playlistId: string | null }>,
+  widgets: Array<{ id: string, type: string, config: unknown, mediaId: string | null, playlistId: string | null }>,
+  eventId: string,
 ) {
   const mediaIds = [...new Set(widgets.map(w => w.mediaId).filter(Boolean) as string[])]
   const playlistIds = [...new Set(widgets.map(w => w.playlistId).filter(Boolean) as string[])]
@@ -45,6 +111,8 @@ export async function resolveTemplateAssets(
       : [],
   ])
 
+  const qrByWidgetId = await resolveWidgetQr(widgets, eventId)
+
   return {
     mediaById: Object.fromEntries(
       media.map(m => [m.id, { url: storage.publicUrl(m.filePath), type: m.type }]),
@@ -60,6 +128,7 @@ export async function resolveTemplateAssets(
         },
       ]),
     ),
+    qrByWidgetId,
   }
 }
 
@@ -197,8 +266,8 @@ export const displayService = {
     // Media & playlist yang dirujuk widget dikirim sekalian, supaya layar tidak
     // perlu memanggil endpoint tambahan hanya untuk mengetahui URL berkasnya.
     const assets = device.template
-      ? await resolveTemplateAssets(device.template.widgets)
-      : { mediaById: {}, playlistById: {} }
+      ? await resolveTemplateAssets(device.template.widgets, device.eventId)
+      : { mediaById: {}, playlistById: {}, qrByWidgetId: {} }
 
     return {
       device: {

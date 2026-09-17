@@ -138,6 +138,8 @@ interface DisplayState {
   counters: CounterBoardEntry[]
   announcements: Array<{ id: string, title: string | null, message: string, type: string }>
   template: { id: string, name: string, background: { color?: string, imageUrl?: string } | null, widgets: TemplateWidget[] } | null
+  /** QR siap pakai per widget QRCODE; lihat `resolveWidgetQr` di display.service. */
+  qrByWidgetId: Record<string, { url: string, pageTitle: string }>
   mediaById: Record<string, { url: string, type: string }>
   playlistById: Record<string, { items: Array<{ media: { url: string, type: string }, durationSeconds: number }> }>
 }
@@ -576,6 +578,7 @@ function lastUpdateText() {
         :announcements="state.announcements"
         :media-by-id="state.mediaById"
         :playlist-by-id="state.playlistById"
+        :qr-by-widget-id="state.qrByWidgetId"
         :highlighted="highlighted"
       />
 
