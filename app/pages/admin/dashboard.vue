@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatHourLabel } from '#shared/utils/service-date'
 import { apiFetch } from '../../composables/useApi'
 import { EVENT_STATUS_COLOR, EVENT_STATUS_LABEL } from '#shared/utils/queue-format'
 
@@ -241,18 +242,34 @@ const maxHourly = computed(() => Math.max(1, ...(data.value?.hourly.map(h => h.c
           <div v-if="!data?.hourly.length" class="py-8 text-center text-sm text-slate-500">
             Belum ada antrean hari ini.
           </div>
-          <div v-else class="flex h-48 items-end gap-1">
+          <!--
+            Jumlahnya ditulis di atas batang, bukan hanya di tooltip.
+
+            Grafik ini paling sering dibaca untuk menjawab satu pertanyaan — "jam
+            berapa paling ramai, dan seramai apa" — dan jawaban keduanya sebelumnya
+            hanya muncul bila kursor diarahkan ke batangnya. Pada laporan yang
+            dicetak, tooltip tidak ada sama sekali.
+
+            Sumbu jamnya memuat HANYA jam yang benar-benar punya antrean; itu yang
+            membuat label selengkap "10.00" tetap muat tanpa ditumpuk atau diputar.
+          -->
+          <div v-else class="flex h-52 items-end gap-1.5">
             <div
               v-for="h in data.hourly"
               :key="h.hour"
-              class="flex flex-1 flex-col items-center gap-1"
+              class="group flex min-w-0 flex-1 flex-col items-center gap-1"
             >
+              <span class="text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+                {{ h.count }}
+              </span>
               <div
-                class="w-full rounded-t bg-brand-500 transition-all"
-                :style="{ height: `${Math.max(4, (h.count / maxHourly) * 160)}px` }"
-                :title="`${h.hour}:00 — ${h.count} antrean`"
+                class="w-full rounded-t bg-brand-500 transition-all group-hover:bg-brand-600 dark:group-hover:bg-brand-400"
+                :style="{ height: `${Math.max(4, (h.count / maxHourly) * 150)}px` }"
+                :title="`${formatHourLabel(h.hour)} — ${h.count} antrean`"
               />
-              <span class="text-[10px] text-slate-400">{{ h.hour }}</span>
+              <span class="text-[10px] tabular-nums text-slate-500">
+                {{ formatHourLabel(h.hour) }}
+              </span>
             </div>
           </div>
         </div>

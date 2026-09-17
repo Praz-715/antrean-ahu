@@ -207,6 +207,18 @@ export const displayService = {
         name: device.name,
         type: device.type,
         queueType: device.queueType,
+        /**
+         * Daftar layanan yang boleh tampil, dikirim EKSPLISIT ke layar.
+         *
+         * Layar berlangganan siaran panggilan seluruh event, jadi ia perlu tahu
+         * sendiri panggilan mana yang bukan urusannya. Menyimpulkannya dari
+         * `board` tidak cukup: papan diperbarui lewat permintaan terpisah, dan
+         * siaran bisa tiba lebih dulu — pada celah itu layar akan mengumumkan
+         * layanan yang tidak pernah ia tampilkan.
+         *
+         * Kosong berarti "semua layanan" (tipe GLOBAL).
+         */
+        queueTypeIds: urutanLayanan,
         isPaired: !!device.deviceTokenHash,
       },
       template: device.template,

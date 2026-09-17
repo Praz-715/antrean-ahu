@@ -111,7 +111,16 @@ interface CounterBoardEntry {
 }
 
 interface DisplayState {
-  device: { id: string, deviceCode: string, name: string, type: string, queueType: { id: string, code: string, name: string, color: string } | null, isPaired: boolean }
+  device: {
+    id: string
+    deviceCode: string
+    name: string
+    type: string
+    queueType: { id: string, code: string, name: string, color: string } | null
+    /** Layanan yang boleh tampil di layar ini; kosong = semua. */
+    queueTypeIds: string[]
+    isPaired: boolean
+  }
   event: { id: string, name: string, timezone: string, status: string }
   organization: { name: string, logoUrl: string | null } | null
   branding: { primaryColor?: string, secondaryColor?: string } | null
@@ -297,7 +306,35 @@ interface CallPayload {
  */
 const priorityCall = ref<string | null>(null)
 
+/**
+ * Apakah panggilan ini memang urusan layar ini?
+ *
+ * Siaran panggilan dikirim ke SELURUH layar pada satu event — tidak ada kamar
+ * terpisah per layanan. Tanpa penjagaan ini, layar yang disetel hanya untuk
+ * beberapa layanan tetap membacakan nomor layanan lain: papannya benar, tetapi
+ * suaranya menyebut layanan yang tidak ada di layar itu. Itu justru lebih
+ * menyesatkan daripada layar yang bisu — pengunjung mendengar namanya dipanggil
+ * lalu mencari nomornya di papan yang tidak akan pernah memuatnya.
+ *
+ * Daftar kosong berarti tipe GLOBAL: semua panggilan diumumkan.
+ */
+function panggilanUntukLayarIni(payload: CallPayload) {
+  const ids = state.value?.device?.queueTypeIds
+  if (!ids?.length) return true
+  return ids.includes(payload.queueTypeId)
+}
+
 function onCalled(payload: CallPayload) {
+  /*
+   * Papan tetap dimuat ulang meski panggilannya bukan untuk layar ini: jumlah
+   * "menunggu" pada layanan lain boleh saja berubah karenanya. Yang dilewati
+   * hanya sorotan dan suaranya.
+   */
+  if (!panggilanUntukLayarIni(payload)) {
+    void loadState()
+    return
+  }
+
   highlighted.value = payload.queueNumber
   const priority = isPriorityQueue(payload.priority)
   priorityCall.value = priority ? payload.queueNumber : null

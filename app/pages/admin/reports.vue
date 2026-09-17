@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { apiFetch } from '../../composables/useApi'
-import { addDays, todayInTimezone } from '#shared/utils/service-date'
+import { addDays, todayInTimezone, formatHourLabel } from '#shared/utils/service-date'
 import { PERMISSIONS } from '#shared/constants/permissions'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -423,13 +423,34 @@ function printReport() {
           <div v-if="!report.hourly.length" class="py-4 text-sm text-slate-500">
             Belum ada antrean pada tanggal ini.
           </div>
-          <div v-else class="flex h-28 items-end gap-1">
-            <div v-for="h in report.hourly" :key="h.hour" class="flex flex-1 flex-col items-center gap-1">
+          <!--
+            Jumlahnya ditulis di atas batang, bukan hanya di tooltip.
+
+            Grafik ini paling sering dibaca untuk menjawab satu pertanyaan — "jam
+            berapa paling ramai, dan seramai apa" — dan jawaban keduanya sebelumnya
+            hanya muncul bila kursor diarahkan ke batangnya. Pada laporan yang
+            dicetak, tooltip tidak ada sama sekali.
+
+            Sumbu jamnya memuat HANYA jam yang benar-benar punya antrean; itu yang
+            membuat label selengkap "10.00" tetap muat tanpa ditumpuk atau diputar.
+          -->
+          <div v-else class="flex h-32 items-end gap-1.5">
+            <div
+              v-for="h in report.hourly"
+              :key="h.hour"
+              class="group flex min-w-0 flex-1 flex-col items-center gap-1"
+            >
+              <span class="text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+                {{ h.count }}
+              </span>
               <div
-                class="w-full rounded-t bg-brand-500"
-                :style="{ height: `${Math.max(4, (h.count / maxHourly) * 90)}px` }"
+                class="w-full rounded-t bg-brand-500 transition-all group-hover:bg-brand-600 dark:group-hover:bg-brand-400"
+                :style="{ height: `${Math.max(4, (h.count / maxHourly) * 84)}px` }"
+                :title="`${formatHourLabel(h.hour)} — ${h.count} antrean`"
               />
-              <span class="text-[10px] text-slate-400">{{ h.hour }}</span>
+              <span class="text-[10px] tabular-nums text-slate-500">
+                {{ formatHourLabel(h.hour) }}
+              </span>
             </div>
           </div>
         </template>

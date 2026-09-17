@@ -47,6 +47,72 @@ const FIELD_TYPES = [
 
 const NEEDS_OPTIONS = ['SELECT', 'RADIO', 'CHECKBOX']
 
+/**
+ * Tipe yang batasnya dihitung dari PANJANG teks, dan yang dari NILAI angkanya.
+ *
+ * Dipisah karena keduanya tersimpan di kunci berbeda (`minLength`/`maxLength`
+ * vs `min`/`max`) dan dibaca cabang validator yang berbeda di server. Satu
+ * kolom "minimum" untuk dua-duanya akan tersimpan di kunci yang salah pada
+ * separuh tipe field.
+ */
+const BATAS_PANJANG = ['TEXT', 'TEXTAREA', 'PHONE']
+const BATAS_ANGKA = ['NUMBER']
+
+/**
+ * Baca satu aturan validasi sebagai nilai kolom.
+ *
+ * `validation` sebuah JSON yang boleh kosong sama sekali, jadi aturan yang belum
+ * pernah diisi dibaca sebagai `undefined` — bukan 0. Nol adalah nilai yang SAH
+ * untuk "minimal 0", dan menyamakan keduanya membuat batas yang sengaja disetel
+ * nol tidak bisa dibedakan dari batas yang belum disetel.
+ */
+function bacaAturan(field: FieldRow | null, kunci: string): number | undefined {
+  const nilai = (field?.validation as Record<string, unknown> | null)?.[kunci]
+  return typeof nilai === 'number' ? nilai : undefined
+}
+
+/**
+ * Tulis satu aturan validasi.
+ *
+ * Nilai kosong MENGHAPUS kuncinya, tidak menyimpan `null`: validator server
+ * memeriksanya dengan `if (rules.minLength)`, dan kunci yang tertinggal dengan
+ * nilai kosong hanya menambah sampah pada JSON yang tersimpan.
+ */
+function tulisAturan(field: FieldRow, kunci: string, nilai: number | undefined) {
+  const lama = (field.validation as Record<string, unknown> | null) ?? {}
+  const kosong = nilai === undefined || Number.isNaN(nilai)
+
+  // Kunci yang dikosongkan disaring keluar, bukan dihapus dari objeknya.
+  const aturan = Object.fromEntries(
+    Object.entries(lama)
+      .filter(([k]) => k !== kunci)
+      .concat(kosong ? [] : [[kunci, nilai]]),
+  )
+
+  field.validation = Object.keys(aturan).length ? aturan : null
+  dirty.value = true
+}
+
+/**
+ * Peringatan bila batasnya saling bertentangan.
+ *
+ * Minimum di atas maksimum bukan galat yang bisa ditangkap server dengan pesan
+ * yang berguna — validatornya hanya akan menolak SETIAP jawaban, dan pengunjung
+ * melihat "minimal 10 karakter" pada kolom yang juga menolak apa pun di atas 5.
+ * Lebih baik ditunjukkan di tempat aturannya dibuat.
+ */
+const peringatanBatas = computed(() => {
+  const f = selected.value
+  if (!f) return ''
+  const pasangan = BATAS_ANGKA.includes(f.type)
+    ? (['min', 'max', 'Nilai minimum', 'Nilai maksimum'] as const)
+    : (['minLength', 'maxLength', 'Minimum karakter', 'Maksimum karakter'] as const)
+  const bawah = bacaAturan(f, pasangan[0])
+  const atas = bacaAturan(f, pasangan[1])
+  if (bawah === undefined || atas === undefined) return ''
+  return bawah > atas ? `${pasangan[2]} melebihi ${pasangan[3].toLowerCase()} — tidak ada jawaban yang bisa lolos.` : ''
+})
+
 const { can } = useMe()
 const { call } = useApi()
 const { currentId, loadEvents } = useCurrentEvent()
@@ -533,6 +599,75 @@ function iconOf(type: string) {
               </UFormField>
 
               <UCheckbox v-model="selected.isRequired" label="Wajib diisi" @update:model-value="dirty = true" />
+
+              <!--
+                Batas isian. Hanya muncul pada tipe yang validatornya memang
+                membacanya — memperlihatkan "minimum karakter" pada Dropdown atau
+                Tanggal hanya menjanjikan sesuatu yang tidak pernah diperiksa.
+
+                Dikosongkan berarti tanpa batas; aturannya dihapus dari JSON, bukan
+                disimpan sebagai nol.
+              -->
+              <div
+                v-if="BATAS_PANJANG.includes(selected.type) || BATAS_ANGKA.includes(selected.type)"
+                class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50"
+              >
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {{ BATAS_ANGKA.includes(selected.type) ? 'Batas Nilai' : 'Batas Panjang' }}
+                </p>
+
+                <div v-if="BATAS_PANJANG.includes(selected.type)" class="grid grid-cols-2 gap-2">
+                  <UFormField label="Min. karakter" size="xs">
+                    <UInputNumber
+                      :model-value="bacaAturan(selected, 'minLength')"
+                      :min="0"
+                      :max="2000"
+                      placeholder="—"
+                      class="w-full"
+                      @update:model-value="(v) => tulisAturan(selected!, 'minLength', v ?? undefined)"
+                    />
+                  </UFormField>
+                  <UFormField label="Maks. karakter" size="xs">
+                    <UInputNumber
+                      :model-value="bacaAturan(selected, 'maxLength')"
+                      :min="1"
+                      :max="2000"
+                      placeholder="—"
+                      class="w-full"
+                      @update:model-value="(v) => tulisAturan(selected!, 'maxLength', v ?? undefined)"
+                    />
+                  </UFormField>
+                </div>
+
+                <div v-else class="grid grid-cols-2 gap-2">
+                  <UFormField label="Nilai minimum" size="xs">
+                    <UInputNumber
+                      :model-value="bacaAturan(selected, 'min')"
+                      placeholder="—"
+                      class="w-full"
+                      @update:model-value="(v) => tulisAturan(selected!, 'min', v ?? undefined)"
+                    />
+                  </UFormField>
+                  <UFormField label="Nilai maksimum" size="xs">
+                    <UInputNumber
+                      :model-value="bacaAturan(selected, 'max')"
+                      placeholder="—"
+                      class="w-full"
+                      @update:model-value="(v) => tulisAturan(selected!, 'max', v ?? undefined)"
+                    />
+                  </UFormField>
+                </div>
+
+                <p v-if="peringatanBatas" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {{ peringatanBatas }}
+                </p>
+                <p v-else class="mt-2 text-xs text-slate-500">
+                  Kosongkan untuk tanpa batas.
+                  <template v-if="selected.type === 'PHONE'">
+                    Pola nomor telepon tetap berlaku (6–20 karakter).
+                  </template>
+                </p>
+              </div>
 
               <!-- Opsi -->
               <div v-if="NEEDS_OPTIONS.includes(selected.type)" class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">

@@ -48,12 +48,27 @@ export function buildFormValidator(fields: Array<Pick<FormFieldModel, 'key' | 't
       case 'EMAIL':
         schema = z.string().trim().email(`${label} tidak valid`)
         break
-      case 'PHONE':
-        schema = z
+      case 'PHONE': {
+        /**
+         * Bentuknya diperiksa dulu, baru panjangnya.
+         *
+         * Pola bawaannya menerima 6-20 karakter; `minLength`/`maxLength` dari admin
+         * MENYEMPITKAN rentang itu, tidak menggantinya — teks yang tidak berbentuk
+         * nomor telepon tetap ditolak berapa pun panjangnya.
+         *
+         * Yang dihitung panjang APA ADANYA, termasuk spasi dan tanda hubung yang
+         * diketik pengunjung. Menghitung angkanya saja membuat pesan galat menyebut
+         * jumlah yang tidak cocok dengan apa yang terlihat di kolomnya.
+         */
+        let p = z
           .string()
           .trim()
           .regex(/^[0-9+][0-9\-\s()]{5,19}$/, `${label} tidak valid`)
+        if (rules.minLength) p = p.min(rules.minLength, `${label} minimal ${rules.minLength} karakter`)
+        if (rules.maxLength) p = p.max(rules.maxLength, `${label} maksimal ${rules.maxLength} karakter`)
+        schema = p
         break
+      }
       case 'DATE':
         schema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, `${label} harus berformat tanggal`)
         break

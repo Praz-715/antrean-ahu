@@ -52,3 +52,18 @@ export function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
+
+/**
+ * Jam pada sumbu grafik: `10` → `"10.00"`.
+ *
+ * Titik, bukan titik dua: seluruh aplikasi ini menulis jam dengan titik (jam pada
+ * layar antrean, waktu pada riwayat ekspor), dan grafik yang memakai `10:00`
+ * membuat satu halaman punya dua gaya penulisan jam.
+ *
+ * Nilainya jam BULAT hasil pengelompokan `GROUP BY HOUR(...)`, jadi menitnya
+ * selalu `00` — yang ditandai bukan satu saat tertentu melainkan rentang satu jam
+ * yang dimulai di situ.
+ */
+export function formatHourLabel(hour: number): string {
+  return `${String(hour).padStart(2, '0')}.00`
+}
