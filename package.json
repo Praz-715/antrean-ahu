@@ -47,7 +47,7 @@
   },
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build",
+    "build": "prisma generate && nuxt build",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare && prisma generate",
     "db:migrate": "prisma migrate dev",
