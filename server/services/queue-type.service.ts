@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma'
+import { storage } from '../utils/storage'
 import { newId } from '../utils/id'
 import { errors } from '../utils/response'
 import { ERROR_CODES } from '../../shared/constants/errors'
@@ -16,15 +17,25 @@ async function assertEventOwnership(organizationId: string, eventId: string) {
 }
 
 export const queueTypeService = {
-  async list(organizationId: string, eventId: string) {
+async list(organizationId: string, eventId: string) {
     await assertEventOwnership(organizationId, eventId)
-    return prisma.queueType.findMany({
+    const items = await prisma.queueType.findMany({
       where: { eventId, deletedAt: null },
       orderBy: [{ displayOrder: 'asc' }, { code: 'asc' }],
       // Operator tidak lagi terikat langsung ke jenis antrean; yang bisa dihitung
       // adalah jumlah LOKET yang melayaninya (§12).
-      include: { _count: { select: { queues: true, counterServices: true } } },
+      include: {
+        _count: { select: { queues: true, counterServices: true } },
+        logoMedia: { select: { filePath: true } },
+      },
     })
+
+    // Tautan logonya dirakit di sini; `filePath` adalah letak berkas di penyimpanan
+    // dan bukan sesuatu yang bisa dipasang klien ke atribut src.
+    return items.map(({ logoMedia, ...qt }) => ({
+      ...qt,
+      logoUrl: logoMedia ? storage.publicUrl(logoMedia.filePath) : null,
+    }))
   },
 
   async getById(organizationId: string, id: string) {
@@ -60,6 +71,7 @@ export const queueTypeService = {
         padding: input.padding,
         color: input.color,
         icon: input.icon ?? null,
+        logoMediaId: input.logoMediaId ?? null,
         isActive: input.isActive,
         displayOrder: input.displayOrder,
         maxWaiting: input.maxWaiting ?? null,
@@ -79,13 +91,24 @@ export const queueTypeService = {
       if (clash) throw errors.conflict(ERROR_CODES.CONFLICT, `Kode "${input.code}" sudah dipakai pada event ini`)
     }
 
-    // Mengubah format nomor saat sudah ada antrean berjalan hari ini akan membuat
-    // penomoran tidak konsisten dalam satu service date.
-    if ((input.numberFormat || input.prefix || input.padding !== undefined) ) {
+    /**
+     * Mengubah format nomor saat sudah ada antrean berjalan hari ini akan membuat
+     * penomoran tidak konsisten dalam satu service date.
+     *
+     * Yang dibandingkan hanya field yang benar-benar dikirim: field yang absen
+     * berarti "tidak diubah", bukan "diubah menjadi undefined". Tanpa ini,
+     * menyimpan warna atau logo saja sudah ikut terbentur penjagaan ini.
+     */
+    const formatBerubah
+      = (input.numberFormat !== undefined && input.numberFormat !== existing.numberFormat)
+        || (input.prefix !== undefined && input.prefix !== existing.prefix)
+        || (input.padding !== undefined && input.padding !== existing.padding)
+
+    if (formatBerubah) {
       const activeToday = await prisma.queue.count({
         where: { queueTypeId: id, status: { in: ['WAITING', 'CALLED', 'SERVING'] }, deletedAt: null },
       })
-      if (activeToday > 0 && (input.numberFormat !== existing.numberFormat || input.prefix !== existing.prefix)) {
+      if (activeToday > 0) {
         throw errors.conflict(
           ERROR_CODES.CONFLICT,
           'Masih ada antrean aktif. Format nomor hanya boleh diubah setelah antrean hari ini selesai.',
@@ -105,6 +128,7 @@ export const queueTypeService = {
         ...(input.padding !== undefined ? { padding: input.padding } : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
         ...(input.icon !== undefined ? { icon: input.icon } : {}),
+        ...(input.logoMediaId !== undefined ? { logoMediaId: input.logoMediaId } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.displayOrder !== undefined ? { displayOrder: input.displayOrder } : {}),
         ...(input.maxWaiting !== undefined ? { maxWaiting: input.maxWaiting } : {}),

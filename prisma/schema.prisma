@@ -401,6 +401,9 @@ model QueueType {
   padding           Int       @default(3)
   color             String    @default("#2563eb") @db.VarChar(20)
   icon              String?   @db.VarChar(60)
+  /// Logo layanan dari Media Library; dipakai kartu layanan halaman publik bila
+  /// gaya penandanya disetel `logo`.
+  logoMediaId       String?   @map("logo_media_id") @db.Char(26)
   isActive          Boolean   @default(true) @map("is_active")
   displayOrder      Int       @default(0) @map("display_order")
   maxWaiting        Int?      @map("max_waiting")
@@ -410,6 +413,7 @@ model QueueType {
   deletedAt         DateTime? @map("deleted_at") @db.DateTime(3)
 
   event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  logoMedia       Media?           @relation(fields: [logoMediaId], references: [id], onDelete: SetNull)
   queueCounters   QueueCounter[]
   queues          Queue[]
   counterServices CounterService[]
@@ -871,6 +875,7 @@ model Media {
   uploadedBy    User?           @relation(fields: [uploadedById], references: [id])
   playlistItems PlaylistItem[]
   widgets       DisplayWidget[]
+  queueTypeLogos QueueType[]
 
   @@index([organizationId, type])
   @@index([uploadedById])

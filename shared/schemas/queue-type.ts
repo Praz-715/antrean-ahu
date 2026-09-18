@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { hexColorSchema, idSchema } from './common'
+import { hexColorSchema, idSchema, skemaPatch } from './common'
 
 export const createQueueTypeSchema = z.object({
   eventId: idSchema,
@@ -18,13 +18,15 @@ export const createQueueTypeSchema = z.object({
   padding: z.number().int().min(1).max(8).default(3),
   color: hexColorSchema.default('#132b48'),
   icon: z.string().trim().max(60).optional().nullable(),
+  /** Berkas Media Library yang dipakai sebagai logo layanan. */
+  logoMediaId: idSchema.optional().nullable(),
   isActive: z.boolean().default(true),
   displayOrder: z.number().int().min(0).max(999).default(0),
   maxWaiting: z.number().int().min(0).max(100000).optional().nullable(),
   estServiceSeconds: z.number().int().min(30).max(86400).default(480),
 })
 
-export const updateQueueTypeSchema = createQueueTypeSchema.omit({ eventId: true }).partial()
+export const updateQueueTypeSchema = skemaPatch(createQueueTypeSchema.omit({ eventId: true }))
 
 export const createCounterSchema = z.object({
   eventId: idSchema,
@@ -40,7 +42,7 @@ export const createCounterSchema = z.object({
   displayOrder: z.number().int().min(0).max(999).default(0),
 })
 
-export const updateCounterSchema = createCounterSchema.omit({ eventId: true }).partial()
+export const updateCounterSchema = skemaPatch(createCounterSchema.omit({ eventId: true }))
 
 export type CreateQueueTypeInput = z.infer<typeof createQueueTypeSchema>
 export type UpdateQueueTypeInput = z.infer<typeof updateQueueTypeSchema>

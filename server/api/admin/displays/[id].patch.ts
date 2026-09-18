@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineApiHandler } from '../../../utils/handler'
 import { errors, ok } from '../../../utils/response'
 import { requireOrganization, requirePermission } from '../../../utils/context'
+import { Prisma } from '../../../../generated/prisma/client'
 import { prisma } from '../../../utils/prisma'
 import { emitDisplayReload } from '../../../realtime/emitters'
 import { displayService } from '../../../services/display.service'
@@ -84,7 +85,8 @@ export default defineApiHandler(async (event) => {
        */
       ...(input.type !== undefined ? { type: input.type } : {}),
       queueTypeId: tipe === 'QUEUE_TYPE' ? idTunggal : null,
-      queueTypeIds: tipe === 'SUBSET' ? idJamak : null,
+      // Bukan SUBSET: kolomnya dikosongkan (DbNull), bukan diisi JSON null.
+      queueTypeIds: tipe === 'SUBSET' ? idJamak : Prisma.DbNull,
     },
     include: {
       queueType: { select: { id: true, code: true, name: true } },

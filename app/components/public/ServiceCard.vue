@@ -28,6 +28,22 @@ const { readable } = useReadableColor()
 
 const cfg = computed(() => props.theme.services)
 
+/**
+ * Penanda yang benar-benar digambar.
+ *
+ * Gaya pilihan admin JATUH KEMBALI ke kode layanan bila sumbernya belum disetel
+ * pada jenis antrean itu. Satu event biasanya diisi bertahap — logo dipasang untuk
+ * sebagian layanan lebih dulu — dan kotak kosong pada sisanya tidak memberi tahu
+ * pengunjung apa pun, sementara kodenya selalu ada dan justru itu yang ia cocokkan
+ * dengan nomor antreannya.
+ */
+const penanda = computed<'code' | 'icon' | 'logo'>(() => {
+  const gaya = cfg.value.badgeStyle
+  if (gaya === 'logo' && props.service.logoUrl) return 'logo'
+  if (gaya === 'icon' && props.service.icon) return 'icon'
+  return 'code'
+})
+
 const gaya = computed(() => ({
   elevated: 'border-slate-200/80 bg-white shadow-sm hover:shadow-md dark:border-slate-800 dark:bg-slate-900',
   outlined: 'border-slate-300 bg-transparent hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900/60',
@@ -54,7 +70,19 @@ const warnaLembut = computed(() => withAlpha(props.service.color, 0.12))
         :style="{ backgroundColor: warnaLembut, color: readable(service.color) }"
         aria-hidden="true"
       >
-        <UIcon v-if="cfg.showIcon && service.icon" :name="service.icon" class="size-6" />
+        <!--
+          Logo tidak mewarisi latar lembut warna layanan seperti kode dan ikon:
+          berkas yang diunggah admin punya warnanya sendiri, dan menumpuknya di
+          atas latar berwarna membuat sebagian logo — terutama yang bertepi terang —
+          tampak kotor. Latarnya diputihkan khusus untuk logo.
+        -->
+        <img
+          v-if="penanda === 'logo'"
+          :src="service.logoUrl!"
+          :alt="`Logo ${service.name}`"
+          class="size-full rounded-xl bg-white object-contain p-1.5"
+        >
+        <UIcon v-else-if="penanda === 'icon'" :name="service.icon!" class="size-6" />
         <template v-else>
           {{ service.code }}
         </template>

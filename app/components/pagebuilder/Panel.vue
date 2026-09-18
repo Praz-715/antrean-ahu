@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PublicPageDraft } from '#shared/types/public-page'
 import { BRANDING_PRESETS, matchPreset } from '#shared/constants/public-page'
-import { accentOf } from '#shared/schemas/public-page'
+import { accentOf, SERVICE_BADGE_OPTIONS } from '#shared/schemas/public-page'
 import { SELECT_NONE, nullableValue } from '#shared/constants/ui'
 import { formatDistance, mapsUrl, parseCoordinates } from '#shared/utils/geo'
 
@@ -528,8 +528,28 @@ function hapusTitik() {
           </div>
         </UFormField>
 
+        <!--
+          Gaya penanda dipilih PER HALAMAN, bukan sekali untuk seluruh sistem.
+          Satu event bisa punya beberapa halaman publik dengan tampilan berbeda —
+          satu untuk lobi ber-logo instansi, satu lagi ringkas untuk tautan pesan —
+          dan tempat inilah yang sudah memegang seluruh pilihan tampilan kartu.
+
+          Logo dan ikonnya sendiri disetel per JENIS ANTREAN di menu Jenis Antrean,
+          karena itu data milik layanannya, bukan milik halamannya.
+        -->
+        <UFormField
+          label="Penanda kartu"
+          help="Logo dan ikon disetel per jenis antrean di menu Jenis Antrean. Layanan yang belum punya akan tetap menampilkan kodenya."
+          class="sm:col-span-2 xl:col-span-3"
+        >
+          <USelect
+            v-model="draft.theme.services.badgeStyle"
+            :items="SERVICE_BADGE_OPTIONS"
+            class="w-full sm:w-80"
+          />
+        </UFormField>
+
         <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2 xl:col-span-3">
-          <USwitch v-model="draft.theme.services.showIcon" label="Ikon layanan" />
           <USwitch v-model="draft.theme.services.showWaiting" label="Jumlah menunggu" />
           <USwitch v-model="draft.theme.services.showEstimate" label="Estimasi tunggu" />
         </div>

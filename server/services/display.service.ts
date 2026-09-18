@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import { Prisma } from '../../generated/prisma/client'
 import { prisma } from '../utils/prisma'
 import { errors } from '../utils/response'
 import { ERROR_CODES } from '../../shared/constants/errors'
@@ -422,7 +423,7 @@ export const displayService = {
         name: input.name,
         type: input.type,
         queueTypeId: input.type === 'QUEUE_TYPE' ? input.queueTypeId ?? null : null,
-        queueTypeIds: input.type === 'SUBSET' ? idTerpilih : null,
+        queueTypeIds: input.type === 'SUBSET' ? idTerpilih : Prisma.DbNull,
         status: 'UNPAIRED',
       },
     })

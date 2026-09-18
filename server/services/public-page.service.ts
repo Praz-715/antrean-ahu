@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma'
+import { storage } from '../utils/storage'
 import { errors } from '../utils/response'
 import { ERROR_CODES } from '../../shared/constants/errors'
 import { formatServiceDate, resolveServiceDate } from '../utils/datetime'
@@ -89,7 +90,17 @@ export const publicPageService = {
           ...(allowed.length ? { id: { in: allowed } } : {}),
         },
         orderBy: { displayOrder: 'asc' },
-        select: { id: true, code: true, name: true, description: true, color: true, icon: true, estServiceSeconds: true, maxWaiting: true },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          description: true,
+          color: true,
+          icon: true,
+          estServiceSeconds: true,
+          maxWaiting: true,
+          logoMedia: { select: { filePath: true } },
+        },
       }),
       prisma.formDefinition.findFirst({
         where: { eventId: page.eventId, isActive: true },
@@ -152,8 +163,15 @@ export const publicPageService = {
         publicRegistration: Boolean(settings[SETTING_KEYS.QUEUE_PUBLIC_REGISTRATION]),
         ratingEnabled: Boolean(settings[SETTING_KEYS.FEEDBACK_RATING_ENABLED]),
       },
-      queueTypes: queueTypes.map(qt => ({
+      queueTypes: queueTypes.map(({ logoMedia, ...qt }) => ({
         ...qt,
+        /**
+         * Logo dikirim sebagai URL siap pakai, bukan id media.
+         *
+         * Halaman publik dibuka pengunjung tanpa sesi; ia tidak bisa — dan tidak
+         * boleh — memanggil Media Library untuk menerjemahkan id menjadi berkas.
+         */
+        logoUrl: logoMedia ? storage.publicUrl(logoMedia.filePath) : null,
         waitingCount: waitingCounts.find(w => w.queueTypeId === qt.id)?._count._all ?? 0,
       })),
       form: form

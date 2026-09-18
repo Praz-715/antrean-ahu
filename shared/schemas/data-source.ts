@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { idSchema } from './common'
+import { idSchema, skemaPatch } from './common'
 
 export const DATA_SOURCE_TYPES = ['REST', 'JSON', 'DB_READONLY', 'WEBHOOK'] as const
 export const DATA_SOURCE_AUTH_TYPES = ['NONE', 'API_KEY', 'BEARER', 'BASIC'] as const
@@ -71,7 +71,7 @@ export const createDataSourceSchema = z.object({
   mappings: z.array(mappingSchema).max(50).default([]),
 })
 
-export const updateDataSourceSchema = createDataSourceSchema.partial()
+export const updateDataSourceSchema = skemaPatch(createDataSourceSchema)
 
 export const testDataSourceSchema = z.object({
   lookup: z.string().trim().max(190).default(''),

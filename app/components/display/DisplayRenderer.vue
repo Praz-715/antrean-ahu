@@ -232,6 +232,16 @@ function scheduleNext(widgetKey: string, playlistId: string) {
   }, Math.max(1, item.durationSeconds) * 1000)
 }
 
+/**
+ * QR yang sudah dirakit server untuk widget ini.
+ *
+ * `widget.id` bisa belum ada pada template yang baru disusun di builder, dan
+ * tanpa id tidak ada QR yang bisa dicocokkan — bukan galat, cuma belum tersimpan.
+ */
+function qrUntukWidget(widget: RenderWidget) {
+  return widget.id ? props.qrByWidgetId?.[widget.id] ?? null : null
+}
+
 function playlistItemFor(widget: RenderWidget) {
   const playlist = widget.playlistId ? props.playlistById?.[widget.playlistId] : null
   if (!playlist?.items.length) return null
@@ -489,17 +499,17 @@ const dateText = computed(() => now.value.toLocaleDateString('id-ID', { weekday:
           </div>
         </template>
 
-<!-- QR -->
+        <!-- QR -->
         <div v-else-if="widget.type === 'QRCODE'" class="flex size-full flex-col items-center justify-center gap-2">
           <!--
             Latarnya selalu putih dengan bantalan: QR dibaca kamera ponsel dari
             jarak satu meter, dan modul gelap di atas latar gelap tidak terbaca
             sama sekali walau gambarnya tergambar sempurna.
           -->
-          <img
-            v-if="qrByWidgetId?.[widget.id]?.url"
-            :src="qrByWidgetId[widget.id]!.url"
-            :alt="`QR ${qrByWidgetId[widget.id]!.pageTitle ?? 'halaman antrean'}`"
+<img
+            v-if="qrUntukWidget(widget)?.url"
+            :src="qrUntukWidget(widget)!.url"
+            :alt="`QR ${qrUntukWidget(widget)!.pageTitle ?? 'halaman antrean'}`"
             class="h-full w-auto max-w-full rounded bg-white p-1.5"
           >
           <!--

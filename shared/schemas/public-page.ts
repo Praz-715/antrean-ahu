@@ -20,6 +20,25 @@ export const HERO_HEIGHTS = ['compact', 'medium', 'large'] as const
 export const HERO_ALIGNS = ['left', 'center', 'right'] as const
 export const SERVICE_CARD_STYLES = ['elevated', 'outlined', 'soft'] as const
 export const SERVICE_CTA_STYLES = ['button', 'link'] as const
+
+/**
+ * Penanda pada kartu layanan halaman publik.
+ *
+ * `code` menampilkan kode layanan ("A", "B"), `icon` memakai ikon Lucide yang
+ * disetel pada jenis antrean, dan `logo` memakai berkas dari Media Library.
+ *
+ * Dua yang terakhir JATUH KEMBALI ke kode bila sumbernya belum disetel pada jenis
+ * antrean itu. Kotak kosong tidak memberi tahu pengunjung apa pun, sementara kode
+ * selalu ada — dan kode itulah yang ia cocokkan dengan nomor antreannya.
+ */
+export const SERVICE_BADGE_STYLES = ['code', 'icon', 'logo'] as const
+export type ServiceBadgeStyle = (typeof SERVICE_BADGE_STYLES)[number]
+
+export const SERVICE_BADGE_OPTIONS: Array<{ label: string, value: ServiceBadgeStyle }> = [
+  { label: 'Kode layanan (A, B, C)', value: 'code' },
+  { label: 'Ikon jenis antrean', value: 'icon' },
+  { label: 'Logo dari Media Library', value: 'logo' },
+]
 export const INFO_STYLES = ['cards', 'plain'] as const
 
 const heroSchema = z.object({
@@ -46,7 +65,14 @@ const servicesSchema = z.object({
   /** Jumlah kolom pada layar lebar; sempit selalu turun jadi satu kolom. */
   columns: z.number().int().min(2).max(4).default(3),
   cardStyle: z.enum(SERVICE_CARD_STYLES).default('elevated'),
-  showIcon: z.boolean().default(true),
+  /**
+   * Penanda kartu: kode layanan, ikon, atau logo dari Media Library.
+   *
+   * Menggantikan `showIcon` yang lama. Satu pilihan bertiga, bukan satu sakelar
+   * ditambah urutan prioritas tersembunyi: dengan sakelar, admin yang menyetel
+   * ikon DAN logo tidak punya cara memberi tahu mana yang ia maksud.
+   */
+  badgeStyle: z.enum(SERVICE_BADGE_STYLES).default('code'),
   showWaiting: z.boolean().default(true),
   showEstimate: z.boolean().default(true),
   ctaStyle: z.enum(SERVICE_CTA_STYLES).default('button'),
@@ -94,7 +120,31 @@ export type PublicPageTheme = z.infer<typeof publicPageThemeSchema>
  * warna yang bukan heksadesimal karena disunting langsung di database — tidak
  * menjatuhkan halaman; yang dipakai nilai bawaannya.
  */
-export function parsePublicPageTheme(raw: unknown): PublicPageTheme {
+/**
+ * Terjemahkan setelan lama `services.showIcon` menjadi `services.badgeStyle`.
+ *
+ * Halaman yang sudah terbit menyimpan `showIcon` dan tidak mengenal
+ * `badgeStyle`; tanpa penerjemahan ini halaman yang sengaja dimatikan ikonnya
+ * akan diam-diam menyalakannya lagi, atau sebaliknya. Nilai baru selalu menang bila
+ * keduanya ada — artinya admin memang sudah memilih dengan kontrol yang baru.
+ */
+function terjemahkanSetelanLama(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+  const objek = raw as Record<string, unknown>
+  const services = objek.services
+  if (!services || typeof services !== 'object') return raw
+
+  const svc = services as Record<string, unknown>
+  if ('badgeStyle' in svc || !('showIcon' in svc)) return raw
+
+  return {
+    ...objek,
+    services: { ...svc, badgeStyle: svc.showIcon === false ? 'code' : 'icon' },
+  }
+}
+
+export function parsePublicPageTheme(rawAsli: unknown): PublicPageTheme {
+  const raw = terjemahkanSetelanLama(rawAsli)
   const hasil = publicPageThemeSchema.safeParse(raw ?? {})
   if (hasil.success) return hasil.data
 

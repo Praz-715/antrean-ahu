@@ -18,12 +18,45 @@ interface QueueType {
   padding: number
   color: string
   icon: string | null
+  logoMediaId: string | null
+  logoUrl: string | null
   isActive: boolean
   displayOrder: number
   maxWaiting: number | null
   estServiceSeconds: number
   _count?: { queues: number, counterServices: number }
 }
+
+/**
+ * Berkas gambar dari Media Library, untuk logo layanan.
+ *
+ * Hanya IMAGE: logo dipasang sebagai `<img>` pada kartu layanan, dan menawarkan
+ * video atau audio di situ hanya menghasilkan penanda yang tidak pernah tergambar.
+ *
+ * Gagal memuatnya jatuh ke daftar kosong, bukan menjatuhkan halaman: akun tanpa
+ * izin `media.view` tetap harus bisa mengelola jenis antrean — yang hilang cuma
+ * pilihan logonya.
+ */
+const SELECT_KOSONG = '__none__'
+const gambar = ref<Array<{ id: string, name: string, url: string }>>([])
+
+async function loadGambar() {
+  gambar.value = await apiFetch<Array<{ id: string, name: string, url: string }>>('/api/admin/media?type=IMAGE')
+    .then(r => r.map(m => ({ id: m.id, name: m.name, url: m.url })))
+    .catch(() => [])
+}
+
+const opsiLogo = computed(() => [
+  { label: '— tanpa logo —', value: SELECT_KOSONG },
+  ...gambar.value.map(m => ({ label: m.name, value: m.id })),
+])
+
+const logoTerpilih = computed({
+  get: () => form.logoMediaId || SELECT_KOSONG,
+  set: (v: string) => { form.logoMediaId = v === SELECT_KOSONG ? '' : v },
+})
+
+const pratinjauLogo = computed(() => gambar.value.find(m => m.id === form.logoMediaId)?.url ?? null)
 
 const { can } = useMe()
 const { call } = useApi()
@@ -46,6 +79,8 @@ async function load() {
   }
 }
 watch(currentId, load, { immediate: true })
+/* Daftar berkas tidak bergantung pada event, jadi cukup sekali. */
+onMounted(loadGambar)
 
 // ---- form ----
 const modalOpen = ref(false)
@@ -62,6 +97,7 @@ const blank = () => ({
   padding: 3,
   color: '#132b48',
   icon: '',
+  logoMediaId: '',
   isActive: true,
   displayOrder: items.value.length + 1,
   maxWaiting: null as number | null,
@@ -98,6 +134,7 @@ function openEdit(item: QueueType) {
     padding: item.padding,
     color: item.color,
     icon: item.icon ?? '',
+    logoMediaId: item.logoMediaId ?? '',
     isActive: item.isActive,
     displayOrder: item.displayOrder,
     maxWaiting: item.maxWaiting,
@@ -123,6 +160,7 @@ async function save() {
     padding: Number(form.padding),
     color: form.color,
     icon: form.icon || null,
+    logoMediaId: form.logoMediaId || null,
     isActive: form.isActive,
     displayOrder: Number(form.displayOrder),
     maxWaiting: form.maxWaiting ? Number(form.maxWaiting) : null,
@@ -223,6 +261,18 @@ const PRESET_COLORS = ['#132b48', '#254776', '#3f72ad', '#0d9488', '#ea580c', '#
               {{ item.name }}
             </p>
             <UBadge v-if="!item.isActive" size="sm" color="neutral" variant="subtle" label="Nonaktif" />
+<!--
+              Penanda kecil bahwa layanan ini sudah punya logo. Kartu publik hanya
+              memakainya bila penanda halamannya disetel ke logo, jadi bentuknya
+              petunjuk kepemilikan berkas — bukan pratinjau kartu.
+            -->
+            <img
+              v-if="item.logoUrl"
+              :src="item.logoUrl"
+              alt=""
+              title="Logo layanan terpasang"
+              class="size-5 rounded bg-white object-contain"
+            >
           </div>
           <p class="text-sm text-slate-500">
             {{ item.description || 'Tanpa deskripsi' }}
@@ -340,6 +390,45 @@ const PRESET_COLORS = ['#132b48', '#254776', '#3f72ad', '#0d9488', '#ea580c', '#
               />
               <UiColorPicker v-model="form.color" label="Warna layanan" :swatches="PRESET_COLORS" class="w-44" />
             </div>
+          </UFormField>
+
+          <!--
+            Logo dan ikon disetel di sini — pada JENIS ANTREANNYA — bukan di halaman
+            publik: keduanya milik layanan itu dan dipakai ulang oleh setiap halaman
+            yang menampilkannya. Yang dipilih per halaman hanyalah mana di antara
+            ketiganya yang digambar ("Penanda kartu" di Halaman Publik → Layanan).
+          -->
+          <UFormField
+            label="Logo layanan"
+            help="Dipakai kartu layanan bila penanda halaman publik disetel ke logo."
+          >
+            <div class="flex items-center gap-2">
+              <USelectMenu
+                v-model="logoTerpilih"
+                :items="opsiLogo"
+                value-key="value"
+                :search-input="{ placeholder: 'Cari berkas…' }"
+                class="min-w-0 flex-1"
+              />
+              <!--
+                Nama berkas di Media Library jarang menjelaskan isinya (mis.
+                "ChatGPT Image Sep 17…"), jadi pratinjaunya yang memastikan admin
+                memasang lambang yang benar sebelum tersimpan.
+              -->
+              <img
+                v-if="pratinjauLogo"
+                :src="pratinjauLogo"
+                alt=""
+                class="size-10 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"
+              >
+            </div>
+          </UFormField>
+
+          <UFormField
+            label="Ikon layanan"
+            help="Nama ikon Lucide, mis. i-lucide-scale. Dipakai bila penandanya disetel ke ikon."
+          >
+            <UInput v-model="form.icon" class="w-full font-mono" placeholder="i-lucide-users" />
           </UFormField>
 
           <div class="sm:col-span-2 flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">

@@ -30,6 +30,8 @@ export interface PublicServiceView {
   description: string | null
   color: string
   icon: string | null
+  /** Logo dari Media Library, sudah berupa URL. Kosong bila belum disetel. */
+  logoUrl: string | null
   waitingCount: number
   estServiceSeconds: number
 }

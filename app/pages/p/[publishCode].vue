@@ -191,7 +191,17 @@ onMounted(() => { void muatTiketSaya() })
 
 // ---- pengambilan nomor ----
 const dialogOpen = ref(false)
-const dialogRef = ref<{ mintaSlider: () => Promise<string | null>, resetTurnstile: () => void } | null>(null)
+/**
+ * Bentuk yang dipakai dari QueueDialog.
+ *
+ * `validasiIsian` dipanggil lebih dulu saat kirim: isian wajib diperiksa di sini
+ * supaya pengunjung tidak dibawa ke verifikasi keamanan hanya untuk ditolak.
+ */
+const dialogRef = ref<{
+  mintaSlider: () => Promise<string | null>
+  resetTurnstile: () => void
+  validasiIsian: () => boolean
+} | null>(null)
 const selectedTypeId = ref<string | null>(null)
 const selectedType = computed(() => data.value?.queueTypes.find(t => t.id === selectedTypeId.value) ?? null)
 const selectedTicket = computed(() =>

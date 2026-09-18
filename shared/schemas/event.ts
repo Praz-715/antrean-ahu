@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { VOICE_PROVIDERS } from '../constants/settings'
-import { dateSchema, hexColorSchema, slugSchema, timeSchema } from './common'
+import { dateSchema, hexColorSchema, skemaPatch, slugSchema, timeSchema } from './common'
 
 export const EVENT_STATUSES = ['DRAFT', 'SCHEDULED', 'OPEN', 'PAUSED', 'CLOSED', 'COMPLETED'] as const
 
@@ -41,7 +41,7 @@ export const createEventSchema = z.object({
   settings: eventSettingsSchema.optional(),
 })
 
-export const updateEventSchema = createEventSchema.partial()
+export const updateEventSchema = skemaPatch(createEventSchema)
 
 export const eventStatusSchema = z.object({
   status: z.enum(EVENT_STATUSES),

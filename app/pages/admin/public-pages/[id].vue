@@ -54,6 +54,7 @@ interface AdminQueueType {
   description: string | null
   color: string
   icon: string | null
+  logoUrl: string | null
   isActive: boolean
   estServiceSeconds: number
 }
@@ -216,6 +217,7 @@ const layananPratinjau = computed<PublicServiceView[]>(() => {
       description: t.description,
       color: t.color,
       icon: t.icon,
+      logoUrl: t.logoUrl,
       estServiceSeconds: t.estServiceSeconds,
       waitingCount: livePublic.value?.queueTypes?.find(q => q.id === t.id)?.waitingCount ?? 0,
     }))
