@@ -300,6 +300,21 @@ async function runAutofill() {
 async function submit() {
   if (!selectedTypeId.value || submitting.value) return
 
+  /**
+   * Isian diperiksa LEBIH DULU, sebelum verifikasi keamanan.
+   *
+   * Sebelumnya teka-teki geser muncul begitu tombol ditekan, dan baru sesudah
+   * pengunjung menyelesaikannya server memberi tahu bahwa satu kolom wajib masih
+   * kosong. Ia mengerjakan verifikasi untuk kiriman yang sudah pasti ditolak,
+   * lalu harus mengerjakannya lagi setelah memperbaiki kolomnya.
+   *
+   * Yang diperiksa di sini hanya bentuk isian. Yang hanya diketahui server —
+   * kuota harian, jam layanan, pagar lokasi — tetap diperiksa di sana dan tetap
+   * bisa menolak kiriman ini; verifikasi keamanan pun tetap wajib, hanya tidak
+   * lagi diminta untuk formulir yang belum selesai.
+   */
+  if (dialogRef.value?.validasiIsian() === false) return
+
   let sliderToken: string | undefined
   if (sliderRequired.value) {
     const tiket = await dialogRef.value?.mintaSlider()

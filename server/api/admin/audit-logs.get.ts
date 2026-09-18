@@ -37,7 +37,7 @@ export default defineApiHandler(async (event) => {
       orderBy: { createdAt: 'desc' },
       skip: (q.page - 1) * q.perPage,
       take: q.perPage,
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true, emailBeforeDelete: true } } },
     }),
     prisma.auditLog.count({ where }),
     prisma.auditLog.groupBy({ by: ['action'], where: { organizationId }, _count: { _all: true } }),
@@ -50,7 +50,24 @@ export default defineApiHandler(async (event) => {
   ])
 
   return ok({
-    items,
+    /**
+     * Email pelakunya dipulihkan ke alamat aslinya.
+     *
+     * Akun yang dihapus menyerahkan alamatnya agar bisa dipakai akun baru, dan
+     * `email` miliknya berisi alamat parkir. Riwayat audit harus menyebut alamat
+     * yang benar-benar dipakai orang itu saat bertindak — alamat parkir tidak
+     * memberi tahu siapa pun apa pun.
+     */
+    items: items.map(item => (item.user
+      ? {
+          ...item,
+          user: {
+            id: item.user.id,
+            name: item.user.name,
+            email: item.user.emailBeforeDelete ?? item.user.email,
+          },
+        }
+      : item)),
     total,
     page: q.page,
     perPage: q.perPage,

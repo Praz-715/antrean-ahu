@@ -2,6 +2,7 @@
 import type { PublicFormFieldDef, PublicServiceView, PublicTicketView } from '#shared/types/public-page'
 import type { PublicPageTheme } from '#shared/schemas/public-page'
 import { withAlpha } from '#shared/utils/color'
+import { buildFormValidator, type FormFieldDef } from '#shared/utils/dynamic-form'
 
 /**
  * Jendela pengambilan nomor antrean.
@@ -69,10 +70,85 @@ const sliderRef = ref<{ minta: () => Promise<string | null> } | null>(null)
 /** Field HIDDEN tetap terkirim memakai nilai bawaannya, tetapi tidak digambar. */
 const visibleFields = computed(() => props.fields.filter(f => f.type !== 'HIDDEN'))
 
+/* ------------------------------------------------------------------
+   Pemeriksaan isian di sisi pengunjung
+
+   Aturannya TIDAK ditulis ulang di sini: `buildFormValidator` adalah pembangun
+   yang sama dengan yang dipakai server saat menerima kiriman. Aturan yang
+   digandakan akan menyimpang, dan bentuk penyimpangannya selalu merugikan
+   pengunjung — klien meloloskan sesuatu yang lalu ditolak server, tepat setelah
+   ia menyelesaikan teka-teki geser.
+
+   Yang diperiksa hanya kolom yang TERLIHAT: kolom tersembunyi diisi sistem, dan
+   memasukkannya ke pemeriksaan berarti menolak kiriman karena sesuatu yang tidak
+   pernah muncul di depan pengunjung.
+------------------------------------------------------------------ */
+const validator = computed(() => buildFormValidator(visibleFields.value as unknown as FormFieldDef[]))
+
+/**
+ * Kolom yang sudah disentuh pengunjung.
+ *
+ * Penanda merah hanya muncul setelah ia meninggalkan kolomnya — formulir yang
+ * langsung memerah sebelum satu huruf pun diketik terasa seperti menuduh.
+ */
+const disentuh = ref<Set<string>>(new Set())
+
+/** Setelah tombol ditekan, SELURUH galat ditampilkan, bukan hanya yang disentuh. */
+const kirimDicoba = ref(false)
+
+/** Galat per kolom, dikelompokkan dari hasil pemeriksaan zod. */
+const galatLokal = computed<Record<string, string[]>>(() => {
+  const hasil = validator.value.safeParse(props.values)
+  if (hasil.success) return {}
+
+  const peta: Record<string, string[]> = {}
+  for (const issue of hasil.error.issues) {
+    const kunci = String(issue.path[0] ?? '')
+    if (!kunci) continue
+    peta[kunci] = [...(peta[kunci] ?? []), issue.message]
+  }
+  return peta
+})
+
+function tandaiDisentuh(kunci: string) {
+  if (disentuh.value.has(kunci)) return
+  disentuh.value = new Set(disentuh.value).add(kunci)
+}
+
+/**
+ * Pesan yang ditampilkan di bawah kolom.
+ *
+ * Galat lokal didahulukan karena ia yang paling baru; galat dari server tetap
+ * ditampilkan untuk hal-hal yang hanya server tahu — kuota harian, jam layanan,
+ * nilai yang bentrok dengan data lain.
+ */
+function pesanGalat(kunci: string): string | undefined {
+  const bolehTampil = kirimDicoba.value || disentuh.value.has(kunci)
+  if (bolehTampil && galatLokal.value[kunci]?.length) return galatLokal.value[kunci]![0]
+  return props.fieldErrors[kunci]?.[0]
+}
+
+/** Kolom sudah terisi DAN lolos aturannya — dasar tanda centang hijau. */
+function sudahSah(kunci: string): boolean {
+  const nilai = props.values[kunci]
+  const terisi = Array.isArray(nilai)
+    ? nilai.length > 0
+    : typeof nilai === 'string' ? nilai.trim() !== '' : nilai !== undefined && nilai !== null
+  return terisi && !galatLokal.value[kunci]?.length
+}
+
 /** Pengunjung yang sudah punya nomor melihat nomornya dulu, bukan formulir kosong. */
 const mode = ref<'ticket' | 'form'>('form')
 watch(() => [open.value, props.ticket] as const, ([terbuka]) => {
-  if (terbuka) mode.value = props.ticket ? 'ticket' : 'form'
+  if (!terbuka) return
+  mode.value = props.ticket ? 'ticket' : 'form'
+  /*
+   * Penanda dilupakan setiap kali jendela dibuka. Layanan berikutnya punya
+   * formulir sendiri, dan galat yang tertinggal dari layanan sebelumnya akan
+   * menuduh kolom yang bahkan belum pernah dilihat.
+   */
+  disentuh.value = new Set()
+  kirimDicoba.value = false
 }, { immediate: true })
 
 function daftarLagi() {
@@ -111,10 +187,34 @@ function labelStatus(status: string) {
 const bisaKirim = computed(() =>
   props.acceptsNew && !(props.turnstileRequired && !captchaToken.value))
 
+/**
+ * Periksa seluruh isian; dipanggil induk SEBELUM meminta verifikasi keamanan.
+ *
+ * Mengembalikan `false` bila ada yang belum benar, sekaligus menampilkan
+ * seluruh galatnya dan memindahkan fokus ke kolom bermasalah yang pertama —
+ * pada formulir panjang, pesan galat di luar layar sama saja dengan tidak ada.
+ */
+function validasiIsian(): boolean {
+  kirimDicoba.value = true
+
+  const bermasalah = visibleFields.value.map(f => f.key).filter(k => galatLokal.value[k]?.length)
+  if (!bermasalah.length) return true
+
+  void nextTick(() => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-field="${bermasalah[0]}"] input, [data-field="${bermasalah[0]}"] textarea, [data-field="${bermasalah[0]}"] button`,
+    )
+    el?.focus()
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
+  return false
+}
+
 defineExpose({
   /** Dipanggil induk sebelum mengirim; mengembalikan tiket captcha geser. */
   mintaSlider: () => sliderRef.value?.minta() ?? Promise.resolve(null),
   resetTurnstile: () => turnstileRef.value?.reset(),
+  validasiIsian,
 })
 </script>
 
@@ -236,11 +336,29 @@ defineExpose({
           <UFormField
             v-for="field in visibleFields"
             :key="field.id"
+            :data-field="field.key"
             :label="field.label"
             :required="field.isRequired"
             :help="field.helpText ?? undefined"
-            :error="fieldErrors[field.key]?.[0]"
+            :error="pesanGalat(field.key)"
           >
+            <!--
+              Tanda centang di baris label, bukan di dalam kolomnya.
+
+              Satu tempat untuk SEMUA tipe isian — teks, area teks, dropdown,
+              pilihan tunggal, pilihan ganda. Menaruhnya di dalam kolom berarti
+              lima penanganan berbeda, dan tiga di antaranya tidak punya tempat
+              untuk ikon sama sekali.
+            -->
+            <template #hint>
+              <span
+                v-if="sudahSah(field.key)"
+                class="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+              >
+                <UIcon name="i-lucide-check" class="size-3.5" />
+                
+              </span>
+            </template>
             <UTextarea
               v-if="field.type === 'TEXTAREA'"
               v-model="values[field.key] as string"
@@ -248,7 +366,14 @@ defineExpose({
               :rows="3"
               size="lg"
               class="w-full"
+              @blur="tandaiDisentuh(field.key)"
             />
+            <!--
+              Pilihan ditandai disentuh saat NILAINYA berubah, bukan saat kolomnya
+              ditinggalkan: dropdown dan pilihan tidak punya momen "selesai
+              mengetik", dan menunggu blur membuat penandanya tertinggal satu
+              langkah di belakang.
+            -->
             <USelect
               v-else-if="field.type === 'SELECT'"
               v-model="values[field.key] as string"
@@ -256,16 +381,19 @@ defineExpose({
               :placeholder="field.placeholder ?? 'Pilih…'"
               size="lg"
               class="w-full"
+              @update:model-value="tandaiDisentuh(field.key)"
             />
             <URadioGroup
               v-else-if="field.type === 'RADIO'"
               v-model="values[field.key] as string"
               :items="optionsOf(field)"
+              @update:model-value="tandaiDisentuh(field.key)"
             />
             <UCheckboxGroup
               v-else-if="field.type === 'CHECKBOX'"
               v-model="values[field.key] as string[]"
               :items="optionsOf(field)"
+              @update:model-value="tandaiDisentuh(field.key)"
             />
             <!-- Unggah berkas belum tersedia; jangan pura-pura bisa. -->
             <div
@@ -283,6 +411,7 @@ defineExpose({
                 size="lg"
                 class="w-full"
                 :class="autofilledKeys.includes(field.key) ? 'rounded-lg ring-1 ring-emerald-400' : ''"
+                @blur="tandaiDisentuh(field.key)"
                 @keydown.enter.prevent="field.key === autofillKey ? emit('autofill') : undefined"
               />
               <!-- Tombol cari hanya pada field pemicu yang ditentukan admin (§6) -->

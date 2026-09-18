@@ -92,7 +92,18 @@ export const userService = {
     phone?: string | null
     roleId: string
   }) {
-    const existing = await prisma.user.findFirst({ where: { email: input.email } })
+    /**
+     * Yang menghalangi hanyalah akun yang MASIH ADA.
+     *
+     * Akun yang sudah dihapus tidak lagi memegang alamatnya: `softDelete`
+     * memindahkannya ke `emailBeforeDelete` dan mengisi `email` dengan alamat
+     * parkir. Petugas berganti sementara email jabatannya tetap — dan dulu
+     * keadaan itu membuat akun penggantinya tidak bisa dibuat sama sekali.
+     */
+    const existing = await prisma.user.findFirst({
+      where: { email: input.email, deletedAt: null },
+      select: { id: true },
+    })
     if (existing) throw errors.conflict(ERROR_CODES.CONFLICT, 'Email sudah terdaftar')
 
     const role = await prisma.role.findFirst({
@@ -105,7 +116,10 @@ export const userService = {
       body: { email: input.email, password: input.password, name: input.name },
     })
 
-    const user = await prisma.user.findFirst({ where: { email: input.email } })
+    /* `deletedAt: null` bukan sekadar kehati-hatian: akun terhapus dengan alamat
+       yang sama memang tidak ada lagi karena alamatnya sudah diparkir, tetapi
+       menyebutkannya membuat kueri ini tidak bergantung pada fakta itu. */
+    const user = await prisma.user.findFirst({ where: { email: input.email, deletedAt: null } })
     if (!user) throw errors.badRequest(ERROR_CODES.INTERNAL_ERROR, 'Gagal membuat pengguna')
 
     await prisma.user.update({
@@ -179,9 +193,32 @@ export const userService = {
     if (id === actorId) throw errors.badRequest(ERROR_CODES.CONFLICT, 'Anda tidak dapat menghapus akun sendiri')
 
     const user = await this.getById(organizationId, id)
+
+    /**
+     * Alamat emailnya dilepas, bukan dibawa mati bersama barisnya.
+     *
+     * `users.email` unik di tingkat basis data, jadi baris yang dihapus halus
+     * tetap memegang alamatnya dan menghalangi akun baru memakainya. Alamat asli
+     * disimpan di `emailBeforeDelete` supaya audit log masih bisa menyebut email
+     * pelakunya; yang mengisi `email` adalah alamat parkir berdomain `.invalid`
+     * — TLD yang dijamin tidak pernah bisa diselesaikan (RFC 2606), sehingga
+     * mustahil tertukar dengan alamat sungguhan oleh manusia maupun oleh pengirim
+     * surel.
+     *
+     * Id-nya tidak diubah, jadi seluruh riwayat — antrean yang pernah ia layani,
+     * entri audit, berkas yang ia unggah — tetap menempel pada akun yang benar.
+     */
     await prisma.$transaction([
       prisma.session.deleteMany({ where: { userId: id } }),
-      prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } }),
+      prisma.user.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          emailBeforeDelete: user.email,
+          email: `terhapus.${id.toLowerCase()}@arsip.invalid`,
+        },
+      }),
     ])
     invalidateAuthContext(id)
     return user

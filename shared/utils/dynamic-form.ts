@@ -1,5 +1,22 @@
 import { z } from 'zod'
-import type { FormFieldModel } from '../../generated/prisma/models'
+
+/**
+ * Bentuk definisi field yang dibutuhkan pembangun validator.
+ *
+ * Dituliskan struktural, bukan diambil dari tipe model Prisma. Berkas ini dipakai
+ * DUA sisi — server saat memvalidasi kiriman, dan halaman publik saat memeriksa
+ * isian sebelum meminta verifikasi keamanan — dan klien tidak boleh menarik tipe
+ * dari klien Prisma hasil generate. Baris model di basis data maupun
+ * `PublicFormFieldDef` yang dikirim ke klien keduanya memenuhi bentuk ini.
+ */
+export interface FormFieldDef {
+  key: string
+  label: string
+  type: string
+  isRequired: boolean
+  validation: unknown
+  options: unknown
+}
 
 export interface FieldOption { label: string, value: string }
 
@@ -12,7 +29,7 @@ export interface FieldValidation {
   patternMessage?: string
 }
 
-function optionValues(field: Pick<FormFieldModel, 'options'>): string[] {
+function optionValues(field: Pick<FormFieldDef, 'options'>): string[] {
   const raw = field.options as unknown
   if (!Array.isArray(raw)) return []
   return raw
@@ -26,10 +43,17 @@ function optionValues(field: Pick<FormFieldModel, 'options'>): string[] {
 
 /**
  * Bangun validator Zod dari definisi form yang dibuat admin (§5).
- * Satu sumber aturan: dipakai server saat submit; klien memakai definisi yang sama
- * untuk merender input dan pesan error.
+ *
+ * SATU sumber aturan untuk dua pemakai. Server memakainya saat menerima kiriman,
+ * dan halaman publik memakainya untuk memeriksa isian SEBELUM meminta verifikasi
+ * keamanan — supaya pengunjung tidak dipaksa menyelesaikan teka-teki geser lebih
+ * dulu hanya untuk diberi tahu bahwa satu kolom wajib masih kosong.
+ *
+ * Disalin ke klien, bukan ditulis ulang di sana: aturan yang digandakan akan
+ * menyimpang, dan bentuk penyimpangannya selalu sama — klien meloloskan sesuatu
+ * yang lalu ditolak server, tepat setelah pengunjung menyelesaikan teka-tekinya.
  */
-export function buildFormValidator(fields: Array<Pick<FormFieldModel, 'key' | 'type' | 'isRequired' | 'label' | 'validation' | 'options'>>) {
+export function buildFormValidator(fields: FormFieldDef[]) {
   const shape: Record<string, z.ZodTypeAny> = {}
 
   for (const field of fields) {

@@ -187,6 +187,9 @@ model User {
   organizationId String?   @map("organization_id") @db.Char(26)
   name           String    @db.VarChar(150)
   email          String    @db.VarChar(190)
+  /// Alamat asli sebelum akun dihapus; `email` sendiri diisi alamat parkir agar
+  /// kunci uniknya dilepas dan alamat itu bisa dipakai akun baru.
+  emailBeforeDelete String? @map("email_before_delete") @db.VarChar(190)
   emailVerified  Boolean   @default(false) @map("email_verified")
   image          String?   @db.VarChar(500)
   username       String?   @db.VarChar(60)
