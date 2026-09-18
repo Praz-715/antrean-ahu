@@ -494,6 +494,61 @@ watch(() => state.value?.settings?.voiceChimeUrl, (url) => {
   if (url && audioUnlocked.value) void callSound.unlock(url)
 })
 
+/* ------------------------------------------------------------------
+   Bilah status pada tata letak Display Builder
+
+   Layar antrean digantung untuk ditonton, bukan dioperasikan. Bilah ini hanya
+   perlu terlihat saat ada orang di depan perangkatnya — memasang perangkat,
+   memeriksa apakah masih ONLINE — dan sesudahnya hanya memakan tinggi yang
+   seharusnya menjadi isi layar.
+
+   Disembunyikan dengan MENGGESER, bukan dilepas dari alur: bilahnya sudah
+   mengambang di atas papan, jadi papan memakai tinggi penuh sejak awal dan
+   tidak pernah berubah ukuran saat bilahnya datang atau pergi. Perender di
+   dalamnya menskalakan kanvas 1920×1080 mengikuti wadahnya; wadah yang
+   tinggi-rendah tiap lima detik berarti kanvas yang melompat-lompat.
+
+   Hanya tata letak template yang diperlakukan begini. Footer tata letak bawaan
+   memuat teks berjalan dan pesan status layanan — itu ISI yang dibaca pengunjung,
+   bukan perkakas operator.
+------------------------------------------------------------------ */
+const BILAH_SEMBUNYI_MS = 5000
+
+const bilahTerlihat = ref(true)
+let bilahTimer: ReturnType<typeof setTimeout> | undefined
+
+function jadwalkanSembunyi() {
+  clearTimeout(bilahTimer)
+  bilahTimer = setTimeout(() => { bilahTerlihat.value = false }, BILAH_SEMBUNYI_MS)
+}
+
+/**
+ * Tampilkan bilah dan mulai hitungan lima detik dari awal.
+ *
+ * Dipanggil dari gerakan penunjuk, ketukan, dan tombol papan ketik. Selama
+ * penunjuk masih bergerak di atas bilahnya, `pointermove` terus memanggil ini
+ * sehingga bilah tidak pernah hilang di bawah kursor yang sedang memakainya —
+ * tanpa perlu penanganan hover tersendiri.
+ */
+function tampilkanBilah() {
+  bilahTerlihat.value = true
+  jadwalkanSembunyi()
+}
+
+onMounted(() => {
+  jadwalkanSembunyi()
+  for (const nama of ['pointermove', 'pointerdown', 'keydown'] as const) {
+    window.addEventListener(nama, tampilkanBilah, { passive: true })
+  }
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(bilahTimer)
+  for (const nama of ['pointermove', 'pointerdown', 'keydown'] as const) {
+    window.removeEventListener(nama, tampilkanBilah)
+  }
+})
+
 /** Tombol buka-suara tidak ada gunanya bila suara memang dimatikan admin. */
 const voiceEnabled = computed(() => state.value?.settings?.voiceEnabled !== false)
 
@@ -582,8 +637,19 @@ function lastUpdateText() {
         :highlighted="highlighted"
       />
 
-      <!-- Baris status tetap ada supaya perangkat tetap bisa dipantau -->
-      <footer class="flex items-center gap-4 border-t border-slate-200 bg-slate-100 px-6 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+      <!--
+        Baris status tetap ada supaya perangkat bisa dipantau, tetapi menyingkir
+        sendiri setelah lima detik. Lihat catatan `BILAH_SEMBUNYI_MS` di script.
+
+        `pointer-events-none` saat tersembunyi: bilah yang sudah lepas dari
+        pandangan tidak boleh tetap menangkap klik yang ditujukan ke papan di
+        belakangnya.
+      -->
+      <footer
+        class="fixed inset-x-0 bottom-0 z-40 flex items-center gap-4 border-t border-slate-200 bg-slate-100/95 px-6 py-2 text-xs text-slate-500 backdrop-blur transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900/95"
+        :class="bilahTerlihat ? 'translate-y-0' : 'pointer-events-none translate-y-full'"
+        :aria-hidden="!bilahTerlihat"
+      >
         <span class="flex items-center gap-1.5">
           <span class="size-1.5 rounded-full" :class="connected ? 'animate-pulse bg-emerald-400' : 'bg-rose-400'" />
           {{ connected ? 'ONLINE' : rejected ? 'PERLU PAIRING ULANG' : 'OFFLINE' }}
