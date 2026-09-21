@@ -10,7 +10,7 @@ useHead({ title: 'Analytics' })
 interface Analytics {
   range: { from: string, to: string, days: number }
   event: { id: string, name: string, timezone: string }
-  totals: { queues: number, visitors: number, completed: number, skipped: number, cancelled: number, noShow: number, waiting: number }
+  totals: { queues: number, visitors: number, completed: number, skipped: number, cancelled: number, noShow: number, expired: number, waiting: number }
   averages: { waitingSeconds: number | null, serviceSeconds: number | null, servedCount: number, satisfaction: number | null, ratingCount: number }
   daily: Array<{ date: string, total: number, completed: number, skipped: number, avgWaitingSeconds: number | null }>
   hourly: Array<{ hour: number, count: number }>

@@ -3,7 +3,7 @@ import { defineApiHandler } from '../../../../utils/handler'
 import { errors, ok } from '../../../../utils/response'
 import { can, requirePermission } from '../../../../utils/context'
 import { operatorQueueService } from '../../../../services/operator.service'
-import { broadcastQueue } from '../../../../realtime/queue-broadcast'
+import { broadcastHangus, broadcastQueue } from '../../../../realtime/queue-broadcast'
 import { auditAsync, AUDIT_ACTIONS } from '../../../../utils/audit'
 import { SOCKET_EVENTS } from '../../../../../shared/constants/socket'
 import { PERMISSIONS, type Permission } from '../../../../../shared/constants/permissions'
@@ -111,6 +111,7 @@ export default defineApiHandler(async (event) => {
   })()
 
   broadcastQueue(config.socket, queue)
+  broadcastHangus(queue)
 
   auditAsync(event, {
     organizationId: queue.organizationId,

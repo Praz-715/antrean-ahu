@@ -173,6 +173,7 @@ const statusClass: Record<string, string> = {
   SKIPPED: 'status-skipped',
   CANCELLED: 'status-cancelled',
   NO_SHOW: 'status-cancelled',
+  EXPIRED: 'status-cancelled',
 }
 </script>
 

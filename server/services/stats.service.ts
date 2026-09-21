@@ -14,6 +14,7 @@ export interface DashboardSummary {
     skipped: number
     cancelled: number
     noShow: number
+    expired: number
   }
   averages: {
     waitingSeconds: number | null
@@ -141,6 +142,7 @@ export const statsService = {
         skipped: totalOf('SKIPPED'),
         cancelled: totalOf('CANCELLED'),
         noShow: totalOf('NO_SHOW'),
+        expired: totalOf('EXPIRED'),
       },
       averages: {
         waitingSeconds: waitingAgg._avg.waitingSeconds ?? null,

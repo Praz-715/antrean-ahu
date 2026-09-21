@@ -7,6 +7,7 @@ import { formatServiceDate, resolveServiceDate, secondsBetween } from '../utils/
 import { settingService } from './setting.service'
 import { SETTING_KEYS } from '../../shared/constants/settings'
 import { QUEUE_PRIORITY } from '../../shared/constants/queue'
+import { hanguskanTerlewat } from './queue-expiry.service'
 
 type Tx = Prisma.TransactionClient
 
@@ -22,6 +23,15 @@ const TRANSITIONS: Record<QueueStatus, QueueStatus[]> = {
   COMPLETED: [],
   CANCELLED: [],
   NO_SHOW: ['CALLED'],
+  /**
+   * Hangus adalah keadaan akhir.
+   *
+   * Memanggilnya kembali akan mematahkan janji yang sudah dibaca pengunjung di
+   * halaman tiketnya — bahwa nomornya tidak berlaku lagi dan ia harus mengambil
+   * nomor baru. Pengunjung yang telanjur pergi ke loket tetap bisa dilayani
+   * lewat nomor barunya, dan riwayatnya tetap utuh sebagai dua baris.
+   */
+  EXPIRED: [],
 }
 
 export function assertTransition(from: QueueStatus, to: QueueStatus) {
@@ -150,6 +160,17 @@ async function requireQueueAccess(userId: string, queueTypeId: string, crossAssi
   return { queueType, counter: null }
 }
 
+/**
+ * Batas "nomor hangus setelah terlewat" yang berlaku untuk event ini.
+ *
+ * Dibaca sebelum transaksi dibuka: pembacaan pengaturan menyentuh tabel lain dan
+ * tidak ada gunanya menahan kunci baris antrean selama itu.
+ */
+async function batasHangus(event: { organizationId: string, settings?: unknown }) {
+  const settings = await settingService.forEvent(event)
+  return Number(settings[SETTING_KEYS.QUEUE_EXPIRE_AFTER_SKIPS] ?? 0)
+}
+
 export const operatorQueueService = {
   /**
    * Tempat kerja operator: satu loket, beserta layanan yang dilayani loket itu.
@@ -210,7 +231,7 @@ export const operatorQueueService = {
         include: { visitor: { select: { fullName: true } } },
       }),
       prisma.queue.findMany({
-        where: { ...scope, status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } },
+        where: { ...scope, status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'EXPIRED'] } },
         orderBy: { finishedAt: 'desc' },
         take: 15,
         include: { visitor: { select: { fullName: true } }, operator: { select: { name: true } } },
@@ -254,7 +275,7 @@ export const operatorQueueService = {
     const access = await requireAssignment(params.userId, params.queueTypeId)
     const event = await prisma.event.findFirstOrThrow({
       where: { id: access.queueType.eventId },
-      select: { id: true, organizationId: true, status: true, timezone: true, allowFinishAfterClose: true },
+      select: { id: true, organizationId: true, status: true, timezone: true, allowFinishAfterClose: true, settings: true },
     })
 
     if (event.status === 'PAUSED') {
@@ -266,7 +287,8 @@ export const operatorQueueService = {
 
     const serviceDate = resolveServiceDate(event.timezone)
     const serviceDateStr = formatServiceDate(serviceDate)
-    const counterId = params.counterId ?? access.counter?.id ?? null
+const counterId = params.counterId ?? access.counter?.id ?? null
+    const batas = await batasHangus(event)
 
     return prisma.$transaction(async (tx) => {
       // 1. Tutup antrean yang sedang dilayani operator ini
@@ -343,8 +365,19 @@ export const operatorQueueService = {
         operatorId: params.userId,
         metadata: { counterId },
       })
+/**
+       * Nomor yang sudah terlewat dihanguskan pada momen ini juga: satu-satunya
+       * cara sebuah nomor menjadi terlewat adalah ada nomor lain yang dipanggil.
+       */
+      const hangus = await hanguskanTerlewat(tx, {
+        queueTypeId: params.queueTypeId,
+        serviceDateStr,
+        batas,
+        operatorId: params.userId,
+      })
 
-      return tx.queue.findFirstOrThrow({ where: { id: candidateId }, include: QUEUE_INCLUDE })
+      const queue = await tx.queue.findFirstOrThrow({ where: { id: candidateId }, include: QUEUE_INCLUDE })
+      return { ...queue, hangus }
     }, { timeout: 15_000, isolationLevel: 'ReadCommitted' })
   },
 
@@ -378,7 +411,13 @@ export const operatorQueueService = {
      * sudah ada: nomor yang tadi ditandai prioritas tetap prioritas walau kemudian
      * dipanggil ulang lewat tombol biasa.
      */
-    const priorityValue = params.priority ? QUEUE_PRIORITY.PRIORITY : null
+const priorityValue = params.priority ? QUEUE_PRIORITY.PRIORITY : null
+
+    const event = await prisma.event.findFirstOrThrow({
+      where: { id: queue.eventId },
+      select: { organizationId: true, settings: true },
+    })
+    const batas = await batasHangus(event)
 
     return prisma.$transaction(async (tx) => {
       const affected = await tx.$executeRaw`
@@ -403,10 +442,18 @@ export const operatorQueueService = {
         previousStatus: queue.status,
         newStatus: 'CALLED',
         operatorId: params.userId,
-        metadata: { counterId, manual: true, priority: !!params.priority },
+metadata: { counterId, manual: true, priority: !!params.priority },
       })
 
-      return tx.queue.findFirstOrThrow({ where: { id: params.queueId }, include: QUEUE_INCLUDE })
+      const hangus = await hanguskanTerlewat(tx, {
+        queueTypeId: queue.queueTypeId,
+        serviceDateStr: formatServiceDate(queue.serviceDate),
+        batas,
+        operatorId: params.userId,
+      })
+
+      const dipanggil = await tx.queue.findFirstOrThrow({ where: { id: params.queueId }, include: QUEUE_INCLUDE })
+      return { ...dipanggil, hangus }
     })
   },
 

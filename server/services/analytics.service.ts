@@ -27,6 +27,7 @@ export interface AnalyticsResult {
     skipped: number
     cancelled: number
     noShow: number
+    expired: number
     waiting: number
   }
   averages: {
@@ -101,6 +102,7 @@ export const analyticsService = {
           SUM(q.status = 'SKIPPED') AS skipped,
           SUM(q.status = 'CANCELLED') AS cancelled,
           SUM(q.status = 'NO_SHOW') AS no_show,
+          SUM(q.status = 'EXPIRED') AS expired,
           SUM(q.status = 'WAITING') AS waiting,
           AVG(CASE WHEN q.status = 'COMPLETED' THEN q.waiting_seconds END) AS avg_waiting,
           AVG(CASE WHEN q.status = 'COMPLETED' AND q.serving_started_at IS NOT NULL THEN q.service_seconds END) AS avg_service,
@@ -185,6 +187,7 @@ export const analyticsService = {
         skipped: num(totals.skipped),
         cancelled: num(totals.cancelled),
         noShow: num(totals.no_show),
+        expired: num(totals.expired),
         waiting: num(totals.waiting),
       },
       averages: {

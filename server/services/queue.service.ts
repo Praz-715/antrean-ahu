@@ -9,6 +9,7 @@ import { createLogger } from '../utils/logger'
 import { storage } from '../utils/storage'
 import { settingService } from './setting.service'
 import { SETTING_KEYS } from '../../shared/constants/settings'
+import { hitungTerlewat } from './queue-expiry.service'
 
 const log = createLogger('queue')
 
@@ -263,7 +264,7 @@ export const queueService = {
     })
     if (!queue) throw errors.notFound('Antrean tidak ditemukan')
 
-    const [settings, ahead, nowServing, activeOperators] = await Promise.all([
+    const [settings, ahead, nowServing, activeOperators, terlewat, halaman] = await Promise.all([
       settingService.forEvent(queue.event),
       prisma.queue.count({
         where: {
@@ -293,8 +294,20 @@ export const queueService = {
        * perkiraan waktu tunggu, jadi angkanya harus mencerminkan loket, bukan
        * daftar penugasan lama.
        */
-      prisma.operatorAssignment.count({
+prisma.operatorAssignment.count({
         where: { counter: { services: { some: { queueTypeId: queue.queueTypeId } } } },
+      }),
+      /** Berapa nomor yang sudah melewatinya — dasar aturan nomor hangus (§58). */
+      hitungTerlewat(queue),
+      /**
+       * Halaman tempat mengambil nomor baru, untuk pengunjung yang nomornya hangus.
+       * Yang dipakai halaman terbit paling awal milik event ini — sama dengan yang
+       * QR-nya dicetak di lokasi.
+       */
+      prisma.publicPage.findFirst({
+        where: { eventId: queue.eventId, isPublished: true, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        select: { publishCode: true },
       }),
     ])
 
@@ -328,6 +341,16 @@ export const queueService = {
       /** Form penilaian hanya ditampilkan bila fitur ini memang dinyalakan (§23, §49). */
       ratingEnabled: Boolean(settings[SETTING_KEYS.FEEDBACK_RATING_ENABLED]),
       position: { ahead, estimateSeconds },
+      /**
+       * Aturan nomor hangus, dikirim apa adanya supaya halaman tiket menuliskan
+       * angka yang benar-benar berlaku — bukan angka 3 yang ditulis tetap di teks
+       * sementara adminnya sudah menggantinya.
+       */
+      expiry: {
+        batas: Number(settings[SETTING_KEYS.QUEUE_EXPIRE_AFTER_SKIPS] ?? 0),
+        dilewati: terlewat,
+      },
+      registerPath: halaman ? `/p/${halaman.publishCode}` : null,
       nowServing: nowServing
         ? { queueNumber: nowServing.queueNumber, counterName: nowServing.counter?.name ?? null }
         : null,

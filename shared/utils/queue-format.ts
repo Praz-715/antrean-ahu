@@ -46,7 +46,8 @@ export const QUEUE_STATUS_LABEL: Record<string, string> = {
   SKIPPED: 'Dilewati',
   COMPLETED: 'Selesai',
   CANCELLED: 'Dibatalkan',
-  NO_SHOW: 'Tidak Hadir',
+NO_SHOW: 'Tidak Hadir',
+  EXPIRED: 'Hangus',
 }
 
 export const QUEUE_STATUS_COLOR: Record<string, string> = {
@@ -56,7 +57,8 @@ export const QUEUE_STATUS_COLOR: Record<string, string> = {
   SKIPPED: 'warning',
   COMPLETED: 'success',
   CANCELLED: 'error',
-  NO_SHOW: 'error',
+NO_SHOW: 'error',
+  EXPIRED: 'error',
 }
 
 export const EVENT_STATUS_LABEL: Record<string, string> = {

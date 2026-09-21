@@ -18,6 +18,7 @@ interface DashboardData {
     skipped: number
     cancelled: number
     noShow: number
+    expired: number
   }
   averages: { waitingSeconds: number | null, serviceSeconds: number | null, satisfaction: number | null, ratingCount: number }
   byQueueType: Array<{ id: string, code: string, name: string, color: string, total: number, waiting: number, completed: number, skipped: number, currentNumber: string | null }>

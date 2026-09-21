@@ -11,7 +11,7 @@ interface DailyReport {
   organization: { name: string } | null
   serviceDate: string
   generatedAt: string
-  totals: { visitors: number, queues: number, completed: number, waiting: number, skipped: number, cancelled: number, noShow: number }
+  totals: { visitors: number, queues: number, completed: number, waiting: number, skipped: number, cancelled: number, noShow: number, expired: number }
   averages: { waitingSeconds: number | null, serviceSeconds: number | null, satisfaction: number | null, ratingCount: number }
   byQueueType: Array<{ code: string, name: string, total: number, completed: number, skipped: number, avgWaitingSeconds: number | null }>
   byOperator: Array<{ name: string, served: number, skipped: number, avgServiceSeconds: number | null }>
@@ -195,6 +195,7 @@ const summaryCards = computed(() => {
     { label: 'Dilewati', value: t?.skipped ?? 0 },
     { label: 'Dibatalkan', value: t?.cancelled ?? 0 },
     { label: 'Tidak Hadir', value: t?.noShow ?? 0 },
+    { label: 'Hangus', value: t?.expired ?? 0 },
   ]
 })
 

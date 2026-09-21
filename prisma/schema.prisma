@@ -38,7 +38,9 @@ enum QueueStatus {
   SKIPPED
   COMPLETED
   CANCELLED
-  NO_SHOW
+NO_SHOW
+  /** Hangus karena sudah dilewati sekian nomor; pengunjung harus mengambil nomor baru. */
+  EXPIRED
 }
 
 enum QueueSource {

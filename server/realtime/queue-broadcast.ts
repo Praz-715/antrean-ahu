@@ -1,5 +1,6 @@
 import { emitQueueEvent, type QueueBroadcastPayload } from './emitters'
 import { formatServiceDate } from '../utils/datetime'
+import { SOCKET_EVENTS } from '../../shared/constants/socket'
 
 /** Bentuk queue hasil service operator (sudah include relasi standar). */
 export interface BroadcastableQueue {
@@ -44,4 +45,16 @@ export function toBroadcastPayload(queue: BroadcastableQueue): QueueBroadcastPay
 /** Siarkan perubahan antrean ke event, jenis antrean, pengunjung, dan admin sekaligus. */
 export function broadcastQueue(eventName: string, queue: BroadcastableQueue) {
   emitQueueEvent(eventName, toBroadcastPayload(queue), queue.organizationId)
+}
+/**
+ * Siarkan nomor yang hangus sebagai efek samping sebuah panggilan.
+ *
+ * Pemanggilan mengembalikan antrean yang dipanggil beserta `hangus` — nomor lain
+ * yang giliran tunggunya habis karena panggilan itu. Pengunjung hanya berlangganan
+ * kamar nomornya sendiri, jadi tanpa siaran ini halaman tiketnya tidak pernah tahu
+ * nomornya sudah tidak berlaku sampai ia memuat ulang halaman.
+ */
+export function broadcastHangus(hasil: unknown) {
+  const daftar = (hasil as { hangus?: BroadcastableQueue[] }).hangus ?? []
+  for (const queue of daftar) broadcastQueue(SOCKET_EVENTS.QUEUE_UPDATED, queue)
 }

@@ -14,7 +14,8 @@ export const eventBrandingSchema = z.object({
 }).partial()
 
 export const eventSettingsSchema = z.object({
-  recallLimit: z.number().int().min(0).max(20).optional(),
+recallLimit: z.number().int().min(0).max(20).optional(),
+  expireAfterSkips: z.number().int().min(0).max(20).optional(),
   estimateEnabled: z.boolean().optional(),
   maxWaitingPerType: z.number().int().min(0).optional(),
   ratingEnabled: z.boolean().optional(),

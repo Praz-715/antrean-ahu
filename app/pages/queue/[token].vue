@@ -24,7 +24,11 @@ interface TrackData {
   event: { id: string, name: string, timezone: string, status: string }
   position: { ahead: number, estimateSeconds: number }
   nowServing: { queueNumber: string, counterName: string | null } | null
-  ratingEnabled: boolean
+ratingEnabled: boolean
+  /** Aturan nomor hangus: batas dari pengaturan, dan berapa nomor yang sudah lewat. */
+  expiry: { batas: number, dilewati: number }
+  /** Halaman untuk mengambil nomor baru; null bila event ini tidak punya halaman terbit. */
+  registerPath: string | null
   testimonial: { id: string, rating: number, comment: string | null, createdAt: string } | null
 }
 
@@ -35,6 +39,20 @@ useHead(() => ({ title: data.value ? `Antrean ${data.value.queueNumber}` : 'Antr
 
 const isCalled = computed(() => data.value && ['CALLED', 'SERVING'].includes(data.value.status))
 const isFinished = computed(() => data.value && ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(data.value.status))
+const isHangus = computed(() => data.value?.status === 'EXPIRED')
+
+/**
+ * Aturan nomor hangus hanya disebut selama nomornya masih bisa terkena.
+ *
+ * Setelah dipanggil, dilayani, atau selesai, aturan itu tidak lagi berlaku untuk
+ * pengunjung ini — menampilkannya terus hanya menambah kalimat yang harus dibaca
+ * tanpa mengubah apa pun yang perlu ia lakukan.
+ */
+const aturanHangus = computed(() => {
+  const batas = data.value?.expiry?.batas ?? 0
+  if (!batas || !data.value || !['WAITING', 'SKIPPED'].includes(data.value.status)) return null
+  return { batas, sisa: Math.max(0, batas - (data.value.expiry?.dilewati ?? 0)) }
+})
 const primary = computed(() => data.value?.queueType.color ?? '#132b48')
 
 // ---- realtime + notifikasi ----
@@ -212,7 +230,7 @@ async function submitRating() {
                 'status-serving': data.status === 'SERVING',
                 'status-completed': data.status === 'COMPLETED',
                 'status-skipped': data.status === 'SKIPPED',
-                'status-cancelled': ['CANCELLED', 'NO_SHOW'].includes(data.status),
+                'status-cancelled': ['CANCELLED', 'NO_SHOW', 'EXPIRED'].includes(data.status),
               }"
             >
               {{ QUEUE_STATUS_LABEL[data.status] ?? data.status }}
@@ -283,7 +301,29 @@ async function submitRating() {
                 {{ data.counter.name }}
               </dd>
             </div>
-          </dl>
+</dl>
+
+          <!--
+            Aturan hangus disebut di tiket, bukan hanya di syarat layanan: pengunjung
+            yang meninggalkan ruang tunggu mengambil keputusan itu dari layar ini, dan
+            ia berhak tahu batasnya sebelum nomornya terlanjur hilang. Angkanya datang
+            dari pengaturan, bukan ditulis tetap di kalimat.
+          -->
+          <p
+            v-if="aturanHangus"
+            class="mt-4 flex gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <UIcon name="i-lucide-info" class="mt-0.5 size-4 shrink-0" />
+            <span>
+              Mohon tetap berada di ruang tunggu. Nomor Anda hangus bila petugas sudah
+              memanggil <b>{{ aturanHangus.batas }} nomor</b> sesudah nomor Anda, dan Anda
+              perlu mengambil nomor baru.
+              <template v-if="aturanHangus.sisa < aturanHangus.batas">
+                <br>
+                Saat ini tersisa <b>{{ aturanHangus.sisa }} nomor</b> lagi sebelum nomor Anda hangus.
+              </template>
+            </span>
+          </p>
 
           <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
             <span class="flex items-center gap-1.5 text-xs" :class="connected ? 'text-emerald-600' : 'text-slate-400'">
@@ -321,6 +361,26 @@ async function submitRating() {
           title="Nomor Anda terlewat"
           description="Silakan hubungi petugas agar nomor Anda dipanggil kembali."
         />
+
+<UAlert
+          v-if="isHangus"
+          class="mt-4"
+          color="error"
+          variant="soft"
+          icon="i-lucide-ticket-x"
+          title="Nomor ini sudah hangus"
+          :description="`Petugas sudah memanggil ${data.expiry.batas} nomor sesudah ${data.queueNumber}, jadi nomor ini tidak berlaku lagi. Silakan ambil nomor baru untuk dilayani.`"
+        >
+          <template v-if="data.registerPath" #actions>
+            <UButton
+              color="error"
+              variant="solid"
+              icon="i-lucide-ticket"
+              label="Ambil nomor baru"
+              :to="data.registerPath"
+            />
+          </template>
+        </UAlert>
 
         <UAlert
           v-if="isFinished"
