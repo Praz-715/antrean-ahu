@@ -570,16 +570,15 @@ v-for="stat in [
                   :loading="acting === 'priority' + row.id"
                   @click="callSpecific(row.id, { priority: true })"
                 />
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-lucide-megaphone"
-                  aria-label="Panggil nomor ini"
-                  title="Panggil nomor ini"
-                  :loading="acting === 'call' + row.id"
-                  @click="callSpecific(row.id)"
-                />
+
+                <!--
+                  Tidak ada tombol "panggil nomor ini" di daftar menunggu.
+                  Urutan panggilan datang dari tombol PANGGIL BERIKUTNYA, dan memanggil
+                  nomor di tengah daftar melompati orang-orang di depannya — yang kini
+                  berakibat nyata: nomor yang terlewat sekian kali otomatis hangus.
+                  Yang tersisa hanyalah tombol prioritas, satu-satunya alasan sah untuk
+                  mendahulukan seseorang.
+                -->
               </li>
             </ul>
           </div>
