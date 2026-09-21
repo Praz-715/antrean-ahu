@@ -539,7 +539,7 @@ function hapusTitik() {
         -->
         <UFormField
           label="Penanda kartu"
-          help="Logo dan ikon disetel per jenis antrean di menu Jenis Antrean. Layanan yang belum punya akan tetap menampilkan kodenya."
+          help="Logonya disetel per jenis antrean di menu Jenis Antrean. Layanan yang belum punya tetap menampilkan kodenya."
           class="sm:col-span-2 xl:col-span-3"
         >
           <USelect

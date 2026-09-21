@@ -96,6 +96,12 @@ const blank = () => ({
   numberFormat: '{prefix}{seq}',
   padding: 3,
   color: '#132b48',
+  /**
+   * Tidak ada isiannya di modal — lambang layanan dipilih lewat "Logo layanan".
+   *
+   * Nilainya tetap dibawa bolak-balik supaya jenis antrean yang ikonnya sudah
+   * telanjur diisi tidak kehilangan ikon itu hanya karena namanya diubah.
+   */
   icon: '',
   logoMediaId: '',
   isActive: true,
@@ -400,7 +406,7 @@ const PRESET_COLORS = ['#132b48', '#254776', '#3f72ad', '#0d9488', '#ea580c', '#
           -->
           <UFormField
             label="Logo layanan"
-            help="Dipakai kartu layanan bila penanda halaman publik disetel ke logo."
+            help="Tampil di papan layar antrean, dan di kartu layanan bila penanda halaman publik disetel ke logo."
           >
             <div class="flex items-center gap-2">
               <USelectMenu
@@ -422,13 +428,6 @@ const PRESET_COLORS = ['#132b48', '#254776', '#3f72ad', '#0d9488', '#ea580c', '#
                 class="size-10 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"
               >
             </div>
-          </UFormField>
-
-          <UFormField
-            label="Ikon layanan"
-            help="Nama ikon Lucide, mis. i-lucide-scale. Dipakai bila penandanya disetel ke ikon."
-          >
-            <UInput v-model="form.icon" class="w-full font-mono" placeholder="i-lucide-users" />
           </UFormField>
 
           <div class="sm:col-span-2 flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">

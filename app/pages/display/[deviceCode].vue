@@ -65,7 +65,7 @@ watch(boardDark, (dark) => {
 const TOKEN_KEY = `antrean:display-token:${deviceCode}`
 
 interface BoardEntry {
-  queueType: { id: string, code: string, name: string, color: string, icon: string | null }
+  queueType: { id: string, code: string, name: string, color: string, icon: string | null, logoUrl: string | null }
   current: {
     queueNumber: string
     status: string
@@ -774,7 +774,21 @@ function lastUpdateText() {
             ]"
           >
             <div class="mb-4 flex items-center gap-3">
+              <!--
+                Lencananya mengikuti kartu layanan di halaman publik: logo bila
+                layanannya punya, kode bila tidak. Pengunjung memilih layanan dari
+                lambang yang sama, jadi papan ini tidak boleh menampilkan lambang
+                yang berbeda. Latarnya diputihkan khusus untuk logo — warna layanan
+                di belakang lambang bertepi terang membuatnya tampak kotor.
+              -->
+              <img
+                v-if="entry.queueType.logoUrl"
+                :src="entry.queueType.logoUrl"
+                :alt="`Logo ${entry.queueType.name}`"
+                class="size-12 shrink-0 rounded-xl bg-white object-contain p-1"
+              >
               <span
+                v-else
                 class="flex size-12 items-center justify-center rounded-xl text-xl font-extrabold"
                 :style="{ backgroundColor: entry.queueType.color + '33', color: warnaLayanan(entry.queueType.color) }"
               >

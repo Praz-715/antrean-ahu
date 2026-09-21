@@ -6,6 +6,7 @@ import { ERROR_CODES } from '../../shared/constants/errors'
 import { formatQueueNumber } from '../../shared/utils/queue-format'
 import { formatServiceDate, resolveServiceDate, serviceDateString } from '../utils/datetime'
 import { createLogger } from '../utils/logger'
+import { storage } from '../utils/storage'
 import { settingService } from './setting.service'
 import { SETTING_KEYS } from '../../shared/constants/settings'
 
@@ -365,11 +366,11 @@ export const queueService = {
      * satu jenis antrean sering dilayani 2–4 loket sekaligus, dan pengunjung perlu
      * tahu nomor mana yang sedang dipanggil di loket mana.
      */
-    const [queueTypes, counters] = await Promise.all([
+    const [barisLayanan, counters] = await Promise.all([
       prisma.queueType.findMany({
         where: { eventId, isActive: true, deletedAt: null },
         orderBy: { displayOrder: 'asc' },
-        select: { id: true, code: true, name: true, color: true, icon: true },
+        select: { id: true, code: true, name: true, color: true, icon: true, logoMedia: { select: { filePath: true } } },
       }),
       prisma.counter.findMany({
         where: { eventId, isActive: true },
@@ -391,6 +392,18 @@ export const queueService = {
         },
       }),
     ])
+
+    /**
+     * Logo layanan ikut dikirim, sama seperti pada halaman publik.
+     *
+     * Papan antrean memakai lencana yang sama dengan kartu layanan — kalau logonya
+     * hanya tampil di halaman publik, pengunjung yang sudah memegang nomor melihat
+     * lambang yang berbeda dengan yang tadi ia pilih.
+     */
+    const queueTypes = barisLayanan.map(({ logoMedia, ...qt }) => ({
+      ...qt,
+      logoUrl: logoMedia ? storage.publicUrl(logoMedia.filePath) : null,
+    }))
 
     if (!queueTypes.length) {
       return {
