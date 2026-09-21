@@ -4,6 +4,7 @@ import { ERROR_CODES } from '../../shared/constants/errors'
 import { newId } from '../utils/id'
 import { storage } from '../utils/storage'
 import { detectFileType } from '../utils/file-type'
+import { pemakaianMedia, petaPemakaianMedia, ringkasPemakaian } from './media-usage.service'
 
 const MAX_IMAGE_BYTES = Number(process.env.MEDIA_MAX_IMAGE_MB || 10) * 1024 * 1024
 const MAX_VIDEO_BYTES = Number(process.env.MEDIA_MAX_VIDEO_MB || 200) * 1024 * 1024
@@ -13,7 +14,7 @@ const MAX_AUDIO_BYTES = Number(process.env.MEDIA_MAX_AUDIO_MB || 20) * 1024 * 10
 const LABEL_TIPE: Record<string, string> = { IMAGE: 'gambar', VIDEO: 'video', AUDIO: 'audio' }
 
 export const mediaService = {
-  async list(organizationId: string, params: { type?: 'IMAGE' | 'VIDEO' | 'AUDIO', search?: string } = {}) {
+  async list(organizationId: string, params: { type?: 'IMAGE' | 'VIDEO' | 'AUDIO', search?: string, usages?: boolean } = {}) {
     const items = await prisma.media.findMany({
       where: {
         organizationId,
@@ -25,7 +26,23 @@ export const mediaService = {
       include: { uploadedBy: { select: { id: true, name: true } } },
     })
 
-    return items.map(m => ({ ...m, url: storage.publicUrl(m.filePath) }))
+/**
+     * Daftar pemakai ikut dikirim supaya pustaka bisa menandai berkas yang terpakai
+     * dan mematikan tombol hapusnya di tempat — bukan membiarkan admin menekan
+     * Hapus dulu baru ditolak server.
+     *
+     * Field-nya dihilangkan sama sekali bila tidak diminta: array kosong akan
+     * terbaca sebagai "aman dihapus" oleh pemanggil yang tidak memintanya.
+     */
+    if (!params.usages) return items.map(m => ({ ...m, url: storage.publicUrl(m.filePath) }))
+
+    const pemakaian = await petaPemakaianMedia(organizationId, items)
+
+    return items.map(m => ({
+      ...m,
+      url: storage.publicUrl(m.filePath),
+      usages: pemakaian.get(m.id) ?? [],
+    }))
   },
 
   async getById(organizationId: string, id: string) {
@@ -100,23 +117,22 @@ export const mediaService = {
 
   /**
    * Hapus media beserta berkasnya.
-   * Ditolak bila masih dipakai widget display atau playlist — supaya layar tidak
-   * tiba-tiba menampilkan kotak kosong.
+   *
+   * Ditolak selama masih ada yang memakainya — layar yang tiba-tiba menampilkan
+   * kotak kosong, atau kartu layanan tanpa logo, baru ketahuan saat pengunjung
+   * sudah di depan mesin. Yang diperiksa bukan cuma widget dan playlist: logo
+   * jenis antrean, nada panggil, serta logo/latar halaman, event, dan template
+   * ikut mengunci berkasnya (lihat `media-usage.service.ts`).
    */
   async remove(organizationId: string, id: string) {
     const media = await this.getById(organizationId, id)
 
-    const [widgetCount, playlistCount] = await Promise.all([
-      prisma.displayWidget.count({ where: { mediaId: id } }),
-      prisma.playlistItem.count({ where: { mediaId: id } }),
-    ])
-
-    if (widgetCount + playlistCount > 0) {
-      const dipakai = [
-        widgetCount ? `${widgetCount} widget display` : null,
-        playlistCount ? `${playlistCount} item playlist` : null,
-      ].filter(Boolean).join(' dan ')
-      throw errors.conflict(ERROR_CODES.CONFLICT, `Media masih dipakai oleh ${dipakai}`)
+    const pemakaian = await pemakaianMedia(organizationId, media)
+    if (pemakaian.length) {
+      throw errors.conflict(
+        ERROR_CODES.CONFLICT,
+        `Media masih dipakai oleh ${ringkasPemakaian(pemakaian)}. Lepaskan dulu dari sana sebelum menghapusnya.`,
+      )
     }
 
     await prisma.media.delete({ where: { id } })

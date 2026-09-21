@@ -18,7 +18,9 @@ interface MediaItem {
   height: number | null
   durationSeconds: number | null
   createdAt: string
-  uploadedBy: { id: string, name: string } | null
+uploadedBy: { id: string, name: string } | null
+  /** Tempat-tempat yang sedang memegang berkas ini; kosong berarti aman dihapus. */
+  usages: Array<{ jenis: string, nama: string }>
 }
 
 interface PlaylistItem {
@@ -51,7 +53,7 @@ async function load() {
   try {
     const [list, pl] = await Promise.all([
       apiFetch<MediaItem[]>('/api/admin/media', {
-        query: { ...(filterValue(typeFilter.value) ? { type: typeFilter.value } : {}), ...(search.value ? { search: search.value } : {}) },
+        query: { usages: true, ...(filterValue(typeFilter.value) ? { type: typeFilter.value } : {}), ...(search.value ? { search: search.value } : {}) },
       }),
       apiFetch<Playlist[]>('/api/admin/playlists'),
     ])
@@ -155,6 +157,19 @@ async function saveRename() {
   const res = await call(`/api/admin/media/${renameTarget.value.id}`, { method: 'PATCH', body: { name: renameValue.value } }, 'Nama diperbarui')
   renameTarget.value = null
   if (res) await load()
+}
+
+/**
+ * Sebut pemakainya, maksimal tiga.
+ *
+ * Satu berkas bisa dipakai belasan tempat; daftar penuh membuat kartunya
+ * memanjang tanpa menambah yang perlu diketahui — sisanya cukup dihitung, dan
+ * pesan dari server saat menghapus tetap menyebutkan semuanya.
+ */
+function daftarPemakaian(item: MediaItem) {
+  const nama = item.usages.slice(0, 3).map(u => `${u.jenis} "${u.nama}"`)
+  const sisa = item.usages.length - nama.length
+  return sisa > 0 ? `${nama.join(', ')} +${sisa} lagi` : nama.join(', ')
 }
 
 const deleteTarget = ref<MediaItem | null>(null)
@@ -355,6 +370,16 @@ const draftTotal = computed(() => draftItems.value.reduce((sum, i) => sum + Numb
               <template v-if="durationText(item.durationSeconds)">
                 · {{ durationText(item.durationSeconds) }}
               </template>
+</p>
+
+            <!--
+              Pemakaian disebut satu per satu, bukan sekadar "sedang dipakai":
+              yang dibutuhkan admin ketika berkasnya ingin dihapus adalah alamat
+              tempat melepasnya, dan daftar inilah jawabannya.
+            -->
+            <p v-if="item.usages.length" class="mt-1.5 text-xs text-amber-600 dark:text-amber-500" :title="daftarPemakaian(item)">
+              <UIcon name="i-lucide-lock" class="mr-0.5 inline size-3 align-[-1px]" />
+              Dipakai: {{ daftarPemakaian(item) }}
             </p>
 
             <div class="mt-2 flex gap-1">
@@ -373,7 +398,13 @@ const draftTotal = computed(() => draftItems.value.reduce((sum, i) => sum + Numb
                     { label: 'Pratinjau', icon: 'i-lucide-eye', onSelect: () => (previewTarget = item) },
                     { label: 'Ubah nama', icon: 'i-lucide-pencil', onSelect: () => { renameTarget = item; renameValue = item.name } },
                   ],
-                  [{ label: 'Hapus', icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: () => (deleteTarget = item) }],
+[{
+                    label: item.usages.length ? 'Sedang dipakai' : 'Hapus',
+                    icon: item.usages.length ? 'i-lucide-lock' : 'i-lucide-trash-2',
+                    color: 'error' as const,
+                    disabled: item.usages.length > 0,
+                    onSelect: () => (deleteTarget = item),
+                  }],
                 ]"
               >
                 <UButton icon="i-lucide-ellipsis-vertical" aria-label="Menu tindakan" title="Menu tindakan" variant="ghost" color="neutral" size="xs" class="ml-auto" />
