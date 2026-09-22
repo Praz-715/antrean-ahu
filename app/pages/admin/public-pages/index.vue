@@ -2,6 +2,7 @@
 import { apiFetch } from '../../../composables/useApi'
 import { PERMISSIONS } from '#shared/constants/permissions'
 import { formatDistance } from '#shared/utils/geo'
+import { type QrVariant, QR_VARIANT_OPTIONS } from '#shared/constants/public-page'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Halaman Publik' })
@@ -106,8 +107,39 @@ async function confirmDelete() {
 
 const qrTarget = ref<PublicPageRow | null>(null)
 const qrVersion = ref(0)
+
+/**
+ * Bentuk QR yang sedang dilihat.
+ *
+ * Dipilih dari dropdown pada kartu dan bisa ditukar di dalam modal: dua QR ini
+ * dicetak untuk keperluan berbeda, dan membandingkannya berdampingan adalah hal
+ * yang wajar dilakukan sebelum memutuskan mana yang ditempel.
+ */
+const qrVariant = ref<QrVariant>('dynamic')
+
+/** Alamat yang dikodekan QR yang sedang tampil — yang juga akan dipindai pengunjung. */
+const qrUrl = computed(() =>
+  qrVariant.value === 'static' ? qrTarget.value?.slugUrl ?? null : qrTarget.value?.url ?? null)
+
 const qrSrc = computed(() =>
-  qrTarget.value ? `/api/admin/public-pages/${qrTarget.value.id}/qr?format=png&size=600&v=${qrVersion.value}` : '')
+  qrTarget.value
+    ? `/api/admin/public-pages/${qrTarget.value.id}/qr?format=png&size=600&variant=${qrVariant.value}&v=${qrVersion.value}`
+    : '')
+
+function bukaQr(page: PublicPageRow, variant: QrVariant) {
+  qrVariant.value = variant
+  qrTarget.value = page
+}
+
+/** Pilihan bentuk QR untuk satu halaman; yang statis mati bila slugnya belum ada. */
+function opsiQr(page: PublicPageRow) {
+  return QR_VARIANT_OPTIONS.map(opsi => ({
+    label: opsi.label,
+    icon: opsi.value === 'static' ? 'i-lucide-link' : 'i-lucide-qr-code',
+    disabled: opsi.value === 'static' && !page.slugUrl,
+    onSelect: () => bukaQr(page, opsi.value),
+  }))
+}
 
 async function regenerateQr(page: PublicPageRow, rotateCode: boolean) {
   await call(
@@ -141,7 +173,7 @@ function printQr() {
       <h1>${qrTarget.value.title}</h1>
       <p>${qrTarget.value.subtitle ?? 'Pindai untuk mengambil nomor antrean'}</p>
       <img src="${window.location.origin}${qrSrc.value}" onload="window.print()" />
-      <div class="url">${qrTarget.value.url}</div>
+      <div class="url">${qrUrl.value ?? qrTarget.value.url}</div>
     </body></html>
   `)
   win.document.close()
@@ -273,7 +305,15 @@ function printQr() {
               label="Susun Tampilan"
               :to="`/admin/public-pages/${page.id}`"
             />
-            <UButton size="sm" icon="i-lucide-qr-code" variant="outline" color="neutral" label="QR" @click="qrTarget = page" />
+<!--
+              Dua bentuk QR, dua keperluan: yang dinamis bisa dicabut dengan memutar
+              kode publikasinya, yang statis bertahan selama slugnya tetap. Keduanya
+              ditawarkan di tempat yang sama supaya pilihannya disadari — bukan
+              terlanjur mencetak yang dinamis untuk papan permanen.
+            -->
+            <UDropdownMenu :items="[opsiQr(page)]">
+              <UButton size="sm" icon="i-lucide-qr-code" variant="outline" color="neutral" label="QR" trailing-icon="i-lucide-chevron-down" />
+            </UDropdownMenu>
             <UiActionButton
               v-if="can(PERMISSIONS.PUBLIC_PAGE_PUBLISH)"
               size="sm"
@@ -304,7 +344,9 @@ function printQr() {
     <UModal
       :open="!!qrTarget"
       :title="qrTarget?.title"
-      description="Pindai untuk membuka halaman pengambilan antrean."
+      :description="qrVariant === 'static'
+        ? 'QR statis — memakai tautan slug yang tetap, aman untuk papan atau brosur.'
+        : 'QR dinamis — memakai kode publikasi yang bisa dicabut lewat Ganti tautan & QR.'"
       @update:open="(v) => { if (!v) qrTarget = null }"
     >
       <template #body>
@@ -315,7 +357,20 @@ function printQr() {
             alt="QR Code"
             class="mx-auto size-64 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700"
           >
-          <code class="mt-3 block break-all text-xs text-slate-500">{{ qrTarget?.url }}</code>
+<code class="mt-3 block break-all text-xs text-slate-500">{{ qrUrl }}</code>
+
+          <!-- Penukar bentuk di dalam modal: memilih ulang tanpa menutup dialog. -->
+          <div class="mt-3 flex justify-center">
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :icon="qrVariant === 'static' ? 'i-lucide-qr-code' : 'i-lucide-link'"
+              :disabled="qrVariant === 'dynamic' && !qrTarget?.slugUrl"
+              :label="qrVariant === 'static' ? 'Lihat QR dinamis' : 'Lihat QR statis'"
+              @click="qrVariant = qrVariant === 'static' ? 'dynamic' : 'static'"
+            />
+          </div>
 
           <div class="mt-4 flex flex-wrap justify-center gap-2">
             <UButton
@@ -324,7 +379,7 @@ function printQr() {
               variant="outline"
               color="neutral"
               label="PNG"
-              :to="`/api/admin/public-pages/${qrTarget?.id}/qr?format=png&size=1200&download=true`"
+              :to="`/api/admin/public-pages/${qrTarget?.id}/qr?format=png&size=1200&download=true&variant=${qrVariant}`"
               external
             />
             <UButton
@@ -333,7 +388,7 @@ function printQr() {
               variant="outline"
               color="neutral"
               label="SVG"
-              :to="`/api/admin/public-pages/${qrTarget?.id}/qr?format=svg&download=true`"
+              :to="`/api/admin/public-pages/${qrTarget?.id}/qr?format=svg&download=true&variant=${qrVariant}`"
               external
             />
             <UButton size="sm" icon="i-lucide-printer" variant="outline" color="neutral" label="Cetak" @click="printQr" />

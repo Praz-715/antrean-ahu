@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma'
 import { errors } from '../utils/response'
 import { ERROR_CODES } from '../../shared/constants/errors'
 import { newId, newShortCode, slugify } from '../utils/id'
+import type { QrVariant } from '../../shared/constants/public-page'
 
 /**
  * Dua alamat untuk satu halaman.
@@ -206,16 +207,37 @@ export const publishService = {
     return { ...qr, url: qr.targetUrl }
   },
 
-  /** Render QR sebagai PNG (buffer) atau SVG (string) — tidak perlu menyimpan berkas. */
-  async renderQr(organizationId: string, id: string, format: 'png' | 'svg', size = 600) {
+/**
+   * Render QR sebagai PNG (buffer) atau SVG (string) — tidak perlu menyimpan berkas.
+   *
+   * `variant` menentukan alamat yang dikodekan: kode publikasi (dinamis) atau slug
+   * (statis). Permintaan statis pada halaman tanpa slug DITOLAK, bukan diam-diam
+   * jatuh ke alamat dinamis — QR yang isinya bukan yang diminta adalah kesalahan
+   * yang baru ketahuan setelah tercetak dan ditempel.
+   */
+  async renderQr(
+    organizationId: string,
+    id: string,
+    format: 'png' | 'svg',
+    size = 600,
+    variant: QrVariant = 'dynamic',
+  ) {
     const page = await this.getById(organizationId, id)
-    const url = page.url
+
+    if (variant === 'static' && !page.slugUrl) {
+      throw errors.badRequest(
+        ERROR_CODES.VALIDATION_ERROR,
+        'Halaman ini belum punya slug, jadi QR statisnya belum bisa dibuat. Isi Slug URL dulu di builder.',
+      )
+    }
+
+    const url = variant === 'static' ? page.slugUrl! : page.url
     const options = { width: size, margin: 2, errorCorrectionLevel: 'M' as const }
 
     if (format === 'svg') {
-      return { body: await QRCode.toString(url, { ...options, type: 'svg' }), mime: 'image/svg+xml' }
+      return { body: await QRCode.toString(url, { ...options, type: 'svg' }), mime: 'image/svg+xml', url }
     }
-    return { body: await QRCode.toBuffer(url, { ...options, type: 'png' }), mime: 'image/png' }
+    return { body: await QRCode.toBuffer(url, { ...options, type: 'png' }), mime: 'image/png', url }
   },
 
   async uniquePublishCode(): Promise<string> {

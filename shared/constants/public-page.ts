@@ -1,4 +1,32 @@
 /**
+ * Dua bentuk QR untuk satu halaman publik.
+ *
+ * DINAMIS memakai kode publikasi (`/p/47cnne2n`). Kodenya bisa diputar lewat
+ * "Ganti tautan & QR", dan begitu diputar semua cetakan lama mati — itu gunanya:
+ * QR yang tersebar di luar kendali bisa dicabut tanpa menyentuh halamannya.
+ *
+ * STATIS memakai slug (`/p/khusus-atensi`). Tautannya tetap selama slugnya tidak
+ * diubah, jadi inilah yang dipakai untuk apa pun yang mahal dicetak ulang —
+ * papan akrilik di lobi, spanduk, atau brosur.
+ *
+ * Halaman tanpa slug hanya punya yang dinamis; pilihan statisnya dimatikan di
+ * antarmuka alih-alih menghasilkan QR yang mengarah ke alamat yang tidak ada.
+ */
+export const QR_VARIANTS = ['dynamic', 'static'] as const
+
+export type QrVariant = (typeof QR_VARIANTS)[number]
+
+export const QR_VARIANT_OPTIONS: Array<{ label: string, value: QrVariant }> = [
+  { label: 'QR dinamis — kode publikasi', value: 'dynamic' },
+  { label: 'QR statis — tautan slug', value: 'static' },
+]
+
+/** Bentuk QR yang sah; apa pun selain 'static' dianggap dinamis. */
+export function parseQrVariant(raw: unknown): QrVariant {
+  return raw === 'static' ? 'static' : 'dynamic'
+}
+
+/**
  * Paket warna siap pakai untuk halaman publik.
  *
  * Memilih tiga warna yang serasi bukan pekerjaan yang wajar dibebankan ke petugas

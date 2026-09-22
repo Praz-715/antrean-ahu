@@ -12,6 +12,7 @@ import { eventService } from './event.service'
 import { settingService } from './setting.service'
 import { SETTING_KEYS } from '../../shared/constants/settings'
 import { parseQueueTypeIds, type DisplayDeviceType } from '../../shared/constants/display'
+import { parseQrVariant } from '../../shared/constants/public-page'
 
 /**
  * Kumpulkan berkas yang dirujuk widget sebuah template.
@@ -53,7 +54,7 @@ async function resolveWidgetQr(
   const terbit = await prisma.publicPage.findMany({
     where: { eventId, isPublished: true, deletedAt: null },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, title: true, publishCode: true },
+    select: { id: true, title: true, publishCode: true, slug: true },
   })
   if (!terbit.length) return {}
 
@@ -67,9 +68,21 @@ async function resolveWidgetQr(
      * itulah keadaan template yang dibuat sebelum pilihan ini ada.
      */
     const page = terbit.find(p => p.id === pilihan) ?? terbit[0]!
+
+    /*
+     * Bentuk QR pilihan admin. Halaman tanpa slug tidak punya alamat statis, jadi
+     * permintaan statis di situ jatuh ke dinamis — layar tidak boleh menggambar QR
+     * yang mengarah ke alamat yang tidak ada hanya karena setelannya tertinggal
+     * dari halaman yang slugnya dihapus.
+     */
+    const bentuk = parseQrVariant((w.config as { qrVariant?: unknown } | null)?.qrVariant)
+    const alamat = bentuk === 'static' && page.slug
+      ? publicPageUrl(page.slug)
+      : publicPageUrl(page.publishCode)
+
     hasil[w.id] = {
       url: `data:image/svg+xml;base64,${Buffer.from(
-        await QRCode.toString(publicPageUrl(page.publishCode), {
+        await QRCode.toString(alamat, {
           type: 'svg',
           margin: 1,
           errorCorrectionLevel: 'M',

@@ -2,6 +2,7 @@
 import { apiFetch } from '../../composables/useApi'
 import { nullableValue, SELECT_NONE } from '#shared/constants/ui'
 import { PERMISSIONS } from '#shared/constants/permissions'
+import { parseQrVariant, type QrVariant, QR_VARIANT_OPTIONS } from '#shared/constants/public-page'
 import {
   CANVAS,
   WIDGET_CATALOG,
@@ -112,7 +113,7 @@ const queueTypes = ref<Array<{ id: string, code: string, name: string }>>([])
  * menolak pengunjung, dan layar antrean bukan tempat yang tepat untuk menemukan
  * hal itu.
  */
-const publicPages = ref<Array<{ id: string, title: string, publishCode: string, createdAt: string }>>([])
+const publicPages = ref<Array<{ id: string, title: string, publishCode: string, slugUrl: string | null, createdAt: string }>>([])
 
 /**
  * Formulir event beserta field-nya (Form Builder, §18).
@@ -142,7 +143,7 @@ watch(currentId, async () => {
      */
     apiFetch<typeof forms.value>('/api/admin/forms', { query: { eventId: currentId.value } }).catch(() => []),
     /* Sama seperti formulir: gagal memuatnya tidak boleh menjatuhkan builder. */
-    apiFetch<Array<{ id: string, title: string, publishCode: string, isPublished: boolean, createdAt: string }>>(
+    apiFetch<Array<{ id: string, title: string, publishCode: string, slugUrl: string | null, isPublished: boolean, createdAt: string }>>(
       '/api/admin/public-pages',
       { query: { eventId: currentId.value } },
     )
@@ -571,6 +572,25 @@ const selectedPublicPageId = nullableProxy(
 )
 
 /**
+ * Bentuk QR yang digambar layar: kode publikasi (dinamis) atau slug (statis).
+ *
+ * Layar antrean adalah tempat QR dinamis paling masuk akal — gambarnya diambil
+ * ulang setiap layar menyegarkan diri, jadi memutar kode publikasi tidak
+ * meninggalkan cetakan mati. Pilihan statis tetap disediakan untuk layar yang
+ * QR-nya ikut difoto pengunjung atau dicetak ulang jadi poster.
+ */
+const selectedQrVariant = computed({
+  get: () => parseQrVariant(selected.value?.config.qrVariant),
+  set: (value: QrVariant) => { if (selected.value) selected.value.config.qrVariant = value },
+})
+
+/** Halaman yang dipakai widget QR terpilih — dasar untuk tahu slugnya ada atau tidak. */
+const halamanQrTerpilih = computed(() => {
+  const dipilih = selected.value?.config.publicPageId as string | undefined
+  return publicPages.value.find(p => p.id === dipilih) ?? publicPages.value[0] ?? null
+})
+
+/**
  * QR sungguhan di pratinjau, bukan kotak kosong.
  *
  * Builder berjalan dengan sesi admin, jadi endpoint QR panel admin bisa dipakai
@@ -584,7 +604,7 @@ const qrByWidgetId = computed(() => Object.fromEntries(
       const dipilih = w.config.publicPageId as string | undefined
       const page = publicPages.value.find(p => p.id === dipilih) ?? publicPages.value[0]
       return page
-        ? [w.id, { url: `/api/admin/public-pages/${page.id}/qr?format=svg&size=600`, pageTitle: page.title }]
+        ? [w.id, { url: `/api/admin/public-pages/${page.id}/qr?format=svg&size=600&variant=${page.slugUrl ? parseQrVariant(w.config.qrVariant) : 'dynamic'}`, pageTitle: page.title }]
         : [w.id, null]
     })
     .filter(([, v]) => v) as Array<[string, { url: string, pageTitle: string }]>,
@@ -979,7 +999,7 @@ const layers = computed(() =>
                 />
               </template>
 
-              <UFormField
+<UFormField
                 v-if="WIDGET_META[selected.type].needsPublicPage"
                 label="Halaman Publik"
                 :help="publicPages.length
@@ -988,6 +1008,23 @@ const layers = computed(() =>
                 size="xs"
               >
                 <USelect v-model="selectedPublicPageId" :items="publicPageOptions" class="w-full" size="sm" />
+              </UFormField>
+
+              <UFormField
+                v-if="WIDGET_META[selected.type].needsPublicPage"
+                label="Bentuk QR"
+                :help="halamanQrTerpilih && !halamanQrTerpilih.slugUrl
+                  ? 'Halaman ini belum punya slug, jadi hanya QR dinamis yang tersedia.'
+                  : 'Dinamis memakai kode publikasi yang bisa dicabut; statis memakai tautan slug yang tetap.'"
+                size="xs"
+              >
+                <USelect
+                  v-model="selectedQrVariant"
+                  :items="QR_VARIANT_OPTIONS"
+                  :disabled="!halamanQrTerpilih?.slugUrl"
+                  class="w-full"
+                  size="sm"
+                />
               </UFormField>
 
               <UFormField v-if="WIDGET_META[selected.type].needsMedia" label="Media" size="xs">
