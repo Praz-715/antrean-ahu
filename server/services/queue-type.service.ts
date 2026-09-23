@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma'
+import { resolveServiceDate } from '../utils/datetime'
 import { storage } from '../utils/storage'
 import { newId } from '../utils/id'
 import { errors } from '../utils/response'
@@ -106,7 +107,12 @@ async list(organizationId: string, eventId: string) {
 
     if (formatBerubah) {
       const activeToday = await prisma.queue.count({
-        where: { queueTypeId: id, status: { in: ['WAITING', 'CALLED', 'SERVING'] }, deletedAt: null },
+        where: {
+          queueTypeId: id,
+          serviceDate: resolveServiceDate(existing.event.timezone),
+          status: { in: ['WAITING', 'CALLED', 'SERVING'] },
+          deletedAt: null,
+        },
       })
       if (activeToday > 0) {
         throw errors.conflict(
@@ -140,11 +146,21 @@ async list(organizationId: string, eventId: string) {
   async softDelete(organizationId: string, id: string) {
     const existing = await this.getById(organizationId, id)
 
+    /**
+     * Sama seperti penghapusan event: hanya antrean HARI INI yang menahan.
+     * Nomor tertinggal dari hari sebelumnya tidak lagi muncul di mana pun, jadi
+     * membiarkannya mengunci layanan ini hanya menyisakan jalan buntu.
+     */
     const active = await prisma.queue.count({
-      where: { queueTypeId: id, status: { in: ['WAITING', 'CALLED', 'SERVING'] }, deletedAt: null },
+      where: {
+        queueTypeId: id,
+        serviceDate: resolveServiceDate(existing.event.timezone),
+        status: { in: ['WAITING', 'CALLED', 'SERVING'] },
+        deletedAt: null,
+      },
     })
     if (active > 0) {
-      throw errors.conflict(ERROR_CODES.CONFLICT, `Masih ada ${active} antrean aktif pada jenis antrean ini`)
+      throw errors.conflict(ERROR_CODES.CONFLICT, `Masih ada ${active} antrean aktif hari ini pada jenis antrean ini`)
     }
 
     /**

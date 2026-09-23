@@ -206,8 +206,8 @@ async function confirmDelete() {
             <span class="ml-1 text-slate-500">loket</span>
           </div>
           <div>
-            <span class="font-semibold">{{ event._count?.queues ?? 0 }}</span>
-            <span class="ml-1 text-slate-500">antrean</span>
+            <span class="font-semibold">{{ event.queuesToday ?? 0 }}</span>
+            <span class="ml-1 text-slate-500">antrean hari ini</span>
           </div>
         </div>
       </div>

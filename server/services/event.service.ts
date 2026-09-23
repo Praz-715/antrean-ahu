@@ -8,6 +8,7 @@ import {
   minutesOfDay,
   nowMinutesInTz,
   parseServiceDate,
+  resolveServiceDate,
   serviceDateString,
 } from '../utils/datetime'
 import type { CreateEventInput, ScheduleItemInput, UpdateEventInput } from '../../shared/schemas/event'
@@ -24,8 +25,8 @@ export interface EventOpenState {
 }
 
 export const eventService = {
-  async list(organizationId: string, params: { search?: string, status?: string } = {}) {
-    return prisma.event.findMany({
+async list(organizationId: string, params: { search?: string, status?: string } = {}) {
+    const events = await prisma.event.findMany({
       where: {
         organizationId,
         deletedAt: null,
@@ -36,9 +37,32 @@ export const eventService = {
       },
       orderBy: [{ createdAt: 'desc' }],
       include: {
-        _count: { select: { queueTypes: true, counters: true, queues: true } },
+        _count: { select: { queueTypes: true, counters: true } },
       },
     })
+
+    if (!events.length) return events.map(e => ({ ...e, queuesToday: 0 }))
+
+    /**
+     * Jumlah antrean yang dihitung adalah antrean HARI INI, bukan sepanjang masa.
+     *
+     * Angka seumur hidup event tidak menjawab pertanyaan yang dibawa admin ke
+     * halaman ini ("ramai atau tidak hari ini"), dan terus membesar sehingga
+     * kartunya kehilangan arti setelah beberapa minggu. Totalnya tetap tersedia
+     * di halaman detail event.
+     *
+     * Tanggal layanan dihitung per event karena tiap event punya zona waktunya
+     * sendiri — satu `groupBy` untuk semua event, bukan satu kueri per kartu.
+     */
+    const hariIni = events.map(e => ({ eventId: e.id, serviceDate: resolveServiceDate(e.timezone) }))
+    const jumlah = await prisma.queue.groupBy({
+      by: ['eventId'],
+      where: { deletedAt: null, OR: hariIni },
+      _count: { _all: true },
+    })
+    const peta = new Map(jumlah.map(j => [j.eventId, j._count._all]))
+
+    return events.map(e => ({ ...e, queuesToday: peta.get(e.id) ?? 0 }))
   },
 
   async getById(organizationId: string, id: string) {
@@ -145,8 +169,22 @@ export const eventService = {
   async softDelete(organizationId: string, id: string) {
     const event = await this.getById(organizationId, id)
 
+/**
+     * Yang menahan penghapusan hanyalah antrean aktif HARI INI.
+     *
+     * Nomor yang ditinggalkan menunggu pada hari-hari sebelumnya tidak pernah
+     * berubah status sendiri, dan tidak ada layar maupun papan operator yang
+     * menampilkannya lagi — keduanya bekerja per tanggal layanan. Tanpa batas
+     * tanggal di sini, satu nomor yang terlupakan minggu lalu mengunci event itu
+     * selamanya tanpa ada tempat untuk membereskannya.
+     */
     const activeQueues = await prisma.queue.count({
-      where: { eventId: id, status: { in: ['WAITING', 'CALLED', 'SERVING'] }, deletedAt: null },
+      where: {
+        eventId: id,
+        serviceDate: resolveServiceDate(event.timezone),
+        status: { in: ['WAITING', 'CALLED', 'SERVING'] },
+        deletedAt: null,
+      },
     })
     if (activeQueues > 0) {
       throw errors.conflict(

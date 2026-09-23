@@ -8,7 +8,9 @@ export interface EventListItem {
   timezone: string
   description: string | null
   createdAt: string
-  _count?: { queueTypes: number, counters: number, queues: number }
+  _count?: { queueTypes: number, counters: number }
+  /** Antrean pada tanggal layanan berjalan event ini; totalnya ada di halaman detail. */
+  queuesToday?: number
 }
 
 /**
