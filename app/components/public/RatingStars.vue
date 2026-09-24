@@ -22,6 +22,20 @@ const RATING_LABELS: Record<number, string> = {
   5: 'Sangat Baik',
 }
 
+/**
+ * Bentuk bintang digambar sendiri, bukan lewat `UIcon`.
+ *
+ * Ikon Nuxt UI dirender sebagai CSS mask — warnanya datang dari `background-color`
+ * dan bentuknya dari `mask-image`, sehingga properti `fill` tidak berpengaruh sama
+ * sekali dan bintang terpilih tetap tampil sebagai garis. Lucide sendiri hanya
+ * menyediakan bintang bergaris, tanpa varian padat.
+ *
+ * Jalur di bawah ini SAMA PERSIS dengan `i-lucide-star` supaya bentuknya tetap
+ * seragam dengan ikon lain di aplikasi; yang berbeda hanya `fill`-nya, yang kini
+ * benar-benar kita kendalikan.
+ */
+const STAR_PATH = 'M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'
+
 const hovered = ref(0)
 const shown = computed(() => hovered.value || props.modelValue)
 
@@ -52,11 +66,23 @@ function pick(value: number) {
         @click="pick(star)"
         @mouseenter="hovered = readonly ? 0 : star"
       >
-        <UIcon
-          :name="star <= shown ? 'i-lucide-star' : 'i-lucide-star'"
+        <!--
+          Bintang terpilih diisi penuh, yang belum terpilih tetap bergaris: yang
+          membedakan bukan hanya warna, jadi nilainya masih terbaca pada layar
+          monokrom maupun oleh mata yang sulit membedakan warna.
+        -->
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
           :class="[sizeClass, star <= shown ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600']"
-          :style="star <= shown ? { fill: 'currentColor' } : undefined"
-        />
+          :fill="star <= shown ? 'currentColor' : 'none'"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path :d="STAR_PATH" />
+        </svg>
       </button>
     </div>
 
