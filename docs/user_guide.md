@@ -293,13 +293,21 @@ Pengaturan penting lain pada builder: **kuota per IP per hari**, **captcha**, da
 
 | Menu | Fungsi |
 |---|---|
-| **Perangkat Display** | Mendaftarkan layar, memilih tipe dan template, reset pairing |
+| **Perangkat Display** | Mendaftarkan layar, memilih tipe dan tata letak, memilih data pengunjung yang tampil, reset pairing |
 | **Pengumuman** | Teks berjalan pada layar antrean |
 | **Display Builder** | Menyusun tata letak layar: widget nomor, loket, jam, logo, gambar, video, playlist, teks berjalan, dan QR Code |
 | **Media Library** | Gambar, video, dan audio untuk layar serta logo layanan |
 
 Pada widget **QR Code** tersedia pilihan **Halaman Publik** (halaman mana yang di-QR-kan) dan
 **Bentuk QR** (dinamis atau statis).
+
+Layar yang memakai **Tata letak bawaan sistem** punya satu pilihan tambahan di kartunya: **data
+pengunjung** yang ditampilkan di bawah nomor. Pilih salah satu isian Form Builder — misalnya
+*Keperluan* — dan kartu layanan menampilkan isian itu milik nomor yang sedang dipanggil. Bila
+dibiarkan pada *"— jumlah menunggu & berikutnya —"*, kartu menampilkan ringkasan antrean seperti
+biasa. Hanya satu isian yang bisa dipilih agar tetap terbaca dari seberang ruangan. Layar yang
+memakai tata letak dari Display Builder mengatur hal ini lewat widget **Data Pengunjung**, jadi
+pilihan ini tidak muncul di kartunya.
 
 > Berkas media **tidak dapat dihapus** selama masih dipakai. Kartu media menyebutkan tempat
 > pemakaiannya, misalnya *Widget display "gedung 5"* atau *Logo jenis antrean "Apostille"*.

@@ -73,6 +73,8 @@ interface BoardEntry {
     priority: number
     lastCalledAt: string | null
     counter: { code: string, name: string } | null
+    /** Isian formulir pengunjung yang diminta layar ini; kosong bila tidak ada. */
+    fields?: Record<string, string>
   } | null
   waitingCount: number
   nextNumbers: string[]
@@ -119,6 +121,8 @@ interface DisplayState {
     queueType: { id: string, code: string, name: string, color: string } | null
     /** Layanan yang boleh tampil di layar ini; kosong = semua. */
     queueTypeIds: string[]
+    /** Satu isian formulir yang menggantikan baris "Menunggu / Berikutnya". */
+    visitorField: { key: string, label: string } | null
     isPaired: boolean
   }
   event: { id: string, name: string, timezone: string, status: string }
@@ -832,8 +836,21 @@ function lastUpdateText() {
               </p>
             </div>
 
+<!--
+              Kaki kartu menampilkan SATU hal saja.
+              Bila admin memilih sebuah isian formulir, itulah yang digambar —
+              nilainya milik nomor yang sedang dipanggil, sehingga petugas dan
+              pengunjung melihat keperluan yang sedang dilayani. Bila tidak ada
+              yang dipilih, kartu kembali ke ringkasan antrean seperti semula.
+            -->
             <div class="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800">
-              <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+              <div v-if="state.device.visitorField" class="truncate text-center text-lg">
+                <span class="text-slate-500 dark:text-slate-400">{{ state.device.visitorField.label }}:</span>
+                <b class="ml-2 text-slate-800 dark:text-slate-100">
+                  {{ entry.current?.fields?.[state.device.visitorField.key] || '—' }}
+                </b>
+              </div>
+              <div v-else class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
                 <span>Menunggu: <b class="text-slate-800 dark:text-slate-200">{{ entry.waitingCount }}</b></span>
                 <span v-if="entry.nextNumbers.length" class="truncate">
                   Berikutnya: <b class="text-slate-800 dark:text-slate-200">{{ entry.nextNumbers.slice(0, 3).join(' · ') }}</b>

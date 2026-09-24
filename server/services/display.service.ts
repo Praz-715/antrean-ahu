@@ -211,11 +211,33 @@ export const displayService = {
      * field yang memang dipasang admin di layar (§18). Widget "Data Pengunjung"
      * menyimpan pilihannya sebagai `config.fields = [{ key, label }]`.
      */
-    const visitorFieldKeys = (device.template?.widgets ?? []).flatMap((widget) => {
+const fieldTemplate = (device.template?.widgets ?? []).flatMap((widget) => {
       const fields = (widget.config as { fields?: Array<{ key?: unknown }> } | null)?.fields
       if (!Array.isArray(fields)) return []
       return fields.map(f => (typeof f?.key === 'string' ? f.key : null)).filter((k): k is string => !!k)
     })
+
+    /**
+     * Tata letak bawaan tidak punya widget, jadi pilihannya disimpan pada perangkat.
+     *
+     * Satu kunci saja: kartu layanan pada tata letak bawaan hanya menyediakan satu
+     * baris di bawah nomor, dan menumpuk beberapa isian di situ membuat keduanya
+     * tidak terbaca dari seberang ruangan — yang justru menjadi alasan layar itu ada.
+     */
+    const visitorFieldKeys = device.templateId
+      ? fieldTemplate
+      : (device.visitorFieldKey ? [device.visitorFieldKey] : [])
+
+    /**
+     * Labelnya diambil dari Form Builder supaya layar menuliskan istilah yang sama
+     * dengan yang dibaca pengunjung saat mengisi formulir.
+     */
+    const visitorField = !device.templateId && device.visitorFieldKey
+      ? await prisma.formField.findFirst({
+          where: { key: device.visitorFieldKey, formDefinition: { eventId: device.eventId } },
+          select: { key: true, label: true },
+        })
+      : null
 
     const [settings, board, openState, announcements] = await Promise.all([
       settingService.forEvent(device.event),
@@ -302,6 +324,8 @@ export const displayService = {
          * Kosong berarti "semua layanan" (tipe GLOBAL).
          */
         queueTypeIds: urutanLayanan,
+        /** Isian pengunjung yang ikut digambar kartu layanan; null = tampilkan jumlah menunggu. */
+        visitorField,
         isPaired: !!device.deviceTokenHash,
       },
       template: device.template,

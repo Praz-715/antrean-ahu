@@ -19,6 +19,8 @@ interface DisplayRow {
   queueTypeIds: string[] | null
   template: { id: string, name: string } | null
   templateId: string | null
+  /** Tata letak bawaan: kunci isian formulir yang ikut ditampilkan di kartu layanan. */
+  visitorFieldKey: string | null
   event: { id: string, name: string }
 }
 
@@ -33,20 +35,24 @@ await loadEvents()
 const devices = ref<DisplayRow[]>([])
 const queueTypes = ref<Array<{ id: string, code: string, name: string }>>([])
 const templates = ref<Array<{ id: string, name: string }>>([])
+const forms = ref<Array<{ id: string, name: string, fields?: Array<{ key: string, label: string }> }>>([])
 const pending = ref(false)
 
 async function load() {
   if (!currentId.value) { devices.value = []; return }
   pending.value = true
   try {
-    const [list, types, templateList] = await Promise.all([
+    const [list, types, templateList, formList] = await Promise.all([
       apiFetch<DisplayRow[]>('/api/admin/displays', { query: { eventId: currentId.value } }),
       apiFetch<typeof queueTypes.value>('/api/admin/queue-types', { query: { eventId: currentId.value } }),
       apiFetch<typeof templates.value>('/api/admin/display-templates', { query: { eventId: currentId.value } }),
+      /* Tanpa izin form.view daftarnya kosong — kolomnya tetap ada, hanya tanpa pilihan. */
+      apiFetch<typeof forms.value>('/api/admin/forms', { query: { eventId: currentId.value } }).catch(() => []),
     ])
     devices.value = list
     queueTypes.value = types
     templates.value = templateList
+    forms.value = formList ?? []
   }
   finally { pending.value = false }
 }
@@ -136,6 +142,36 @@ async function confirmDelete() {
   const res = await call(`/api/admin/displays/${deleteTarget.value.id}`, { method: 'DELETE' }, 'Perangkat dihapus')
   deleteTarget.value = null
   if (res) await load()
+}
+
+/**
+ * Isian formulir yang bisa ditampilkan kartu layanan, tanpa kunci ganda.
+ *
+ * Satu event bisa punya beberapa formulir yang memakai kunci sama (mis. `nama`);
+ * yang dikirim ke layar hanyalah kuncinya, jadi menawarkannya dua kali hanya
+ * membingungkan tanpa menghasilkan pilihan yang berbeda.
+ */
+const opsiIsian = computed(() => {
+  const sudah = new Set<string>()
+  const items = [{ label: '— jumlah menunggu & berikutnya —', value: SELECT_NONE }]
+  for (const form of forms.value) {
+    for (const field of form.fields ?? []) {
+      if (sudah.has(field.key)) continue
+      sudah.add(field.key)
+      items.push({ label: field.label, value: field.key })
+    }
+  }
+  return items
+})
+
+/** Simpan isian pilihan untuk satu layar bertata letak bawaan. */
+async function setVisitorField(device: DisplayRow, key: string) {
+  await call(
+    `/api/admin/displays/${device.id}`,
+    { method: 'PATCH', body: { visitorFieldKey: nullableValue(key) } },
+    nullableValue(key) ? 'Data pengunjung ditampilkan di layar' : 'Kartu kembali menampilkan jumlah antrean',
+  )
+  await load()
 }
 
 /** Pasang tata letak buatan Display Builder ke satu perangkat. */
@@ -263,7 +299,23 @@ function lastSeen(value: string | null) {
           Terakhir terlihat: {{ lastSeen(device.lastSeenAt) }}
         </p>
 
-        <div v-if="can(PERMISSIONS.DISPLAY_MANAGE)" class="mt-4 flex flex-wrap gap-2">
+        <div v-if="can(PERMISSIONS.DISPLAY_MANAGE)" class="mt-4 flex flex-wrap items-center gap-2">
+          <!--
+            Pilihan ini hanya berlaku untuk tata letak bawaan. Tata letak buatan
+            Display Builder sudah punya widget "Data Pengunjung" sendiri, dan
+            menyediakan dua tempat mengatur hal yang sama hanya membuat salah
+            satunya diam-diam diabaikan.
+          -->
+          <USelect
+            v-if="!device.templateId"
+            :model-value="device.visitorFieldKey ?? SELECT_NONE"
+            :items="opsiIsian"
+            size="sm"
+            class="w-full"
+            aria-label="Data pengunjung pada kartu layanan"
+            title="Data pengunjung yang ditampilkan kartu layanan"
+            @update:model-value="(v) => setVisitorField(device, v as string)"
+          />
           <UButton
             size="sm"
             variant="outline"

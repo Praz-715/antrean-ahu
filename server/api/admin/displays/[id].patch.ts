@@ -17,7 +17,9 @@ const bodySchema = z.object({
   type: z.enum(DISPLAY_TYPES).optional(),
   queueTypeId: idSchema.optional().nullable(),
   /** Tipe SUBSET: urutan larik ini adalah urutan tampil di papan. */
-  queueTypeIds: z.array(idSchema).max(MAX_SUBSET_QUEUE_TYPES).optional().nullable(),
+queueTypeIds: z.array(idSchema).max(MAX_SUBSET_QUEUE_TYPES).optional().nullable(),
+  /** Tata letak bawaan: kunci isian formulir yang ikut ditampilkan pada kartu layanan. */
+  visitorFieldKey: z.string().trim().max(60).optional().nullable(),
 })
 
 export default defineApiHandler(async (event) => {
@@ -86,7 +88,8 @@ export default defineApiHandler(async (event) => {
       ...(input.type !== undefined ? { type: input.type } : {}),
       queueTypeId: tipe === 'QUEUE_TYPE' ? idTunggal : null,
       // Bukan SUBSET: kolomnya dikosongkan (DbNull), bukan diisi JSON null.
-      queueTypeIds: tipe === 'SUBSET' ? idJamak : Prisma.DbNull,
+queueTypeIds: tipe === 'SUBSET' ? idJamak : Prisma.DbNull,
+      ...(input.visitorFieldKey !== undefined ? { visitorFieldKey: input.visitorFieldKey || null } : {}),
     },
     include: {
       queueType: { select: { id: true, code: true, name: true } },

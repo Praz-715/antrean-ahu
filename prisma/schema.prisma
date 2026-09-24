@@ -785,6 +785,8 @@ model DisplayDevice {
   /// Dipakai tipe SUBSET. Larik id layanan; URUTANNYA adalah urutan tampil di papan.
   queueTypeIds    Json?               @map("queue_type_ids")
   templateId      String?             @map("template_id") @db.Char(26)
+  /// Tata letak bawaan: satu kunci `form_fields.key` yang nilainya ikut ditampilkan pada kartu layanan.
+  visitorFieldKey String?             @map("visitor_field_key") @db.VarChar(80)
   status          DisplayDeviceStatus @default(UNPAIRED)
   lastSeenAt      DateTime?           @map("last_seen_at") @db.DateTime(3)
   lastIp          String?             @map("last_ip") @db.VarChar(64)
