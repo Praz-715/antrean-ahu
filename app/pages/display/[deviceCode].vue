@@ -867,8 +867,14 @@ function lastUpdateText() {
 
       <!-- Running text -->
       <footer class="flex items-center gap-6 border-t border-slate-200 bg-slate-100 px-8 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+        <!--
+          Pengumuman dicetak lebih besar dan tebal daripada isi kaki layar lainnya.
+          Yang lain di baris ini — status layanan, nama perangkat, tombol — hanya
+          perlu terbaca petugas yang berdiri di depan layar, sedangkan pengumuman
+          ditujukan ke seluruh ruang tunggu dan harus terbaca dari kursi terjauh.
+        -->
         <div v-if="runningText" class="relative flex-1 overflow-hidden">
-          <div class="animate-[marquee_28s_linear_infinite] whitespace-nowrap text-slate-700 dark:text-slate-300">
+          <div class="animate-[marquee_28s_linear_infinite] whitespace-nowrap text-xl font-bold tracking-wide text-slate-800 dark:text-slate-100">
             {{ runningText }}
           </div>
         </div>
@@ -897,15 +903,15 @@ function lastUpdateText() {
           @click="toggleFullscreen"
         >
           <UIcon :name="isFullscreen ? 'i-lucide-minimize' : 'i-lucide-maximize'" class="size-4" />
-          {{ isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh' }}
+          {{ isFullscreen ? 'Exit' : 'Fullscreen' }}
         </button>
 
         <UiThemeToggle size="xs" />
 
-        <span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+        <!-- <span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
           {{ state.device.name }} · {{ lastUpdateText() }}
           <template v-if="rejected"> · {{ lastError }} — reset pairing dari panel admin</template>
-        </span>
+        </span> -->
       </footer>
     </template>
   </div>
